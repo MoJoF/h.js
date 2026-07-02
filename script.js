@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }]
         ]
     })
-    
+
     document.body.appendChild(header)
 
     const count = h.signal(1)
@@ -30,11 +30,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.body.appendChild(
         h("main", {
-            css: { width: "100vw", height: '100vh' },
+            css: { width: "100vw", height: '10vh' },
             children: [
+                () => {
+                    if (count.value === 1) return ["h1", { text: "Один" }]
+                    else if (count.value === 2) return ["h1", { text: "Два" }]
+                    else return ["h1", { text: "Много" }]
+                },
                 ['button', {
                     text: 'Click', css: { color },
-                    on: { click: () => h.unmount(header) }
+                    on: { click: () => count.value++ }
                 }],
                 ['input', {
                     on: { input: (e) => color.value = e.target.value },
@@ -46,4 +51,18 @@ document.addEventListener("DOMContentLoaded", function () {
         },
         )
     )
+
+
+    document.body.appendChild(h("div", {text: color.value + 'ddddddddddddddddd'}))
+
+    document.body.appendChild(
+        h(() => {
+            console.log('render')
+            return color.value === 'red' ?
+                h("div", { text: "Красный" }) :
+                h("div", { text: "Не красный" })
+        }
+        )
+    )
+
 })

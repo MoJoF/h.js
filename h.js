@@ -1,5 +1,7 @@
 
 (function (global) {
+    let CURRENT_EFFECT = null;
+
     /**
      * Создание сигнала (реактивная переменная)
     */
@@ -8,6 +10,9 @@
         return {
             __isSignal: true,
             get value() {
+                if (CURRENT_EFFECT) {
+                    listeners.add(CURRENT_EFFECT);
+                }
                 return v
             },
             set value(newValue) {
@@ -38,6 +43,25 @@
         });
     }
 
+    // Динамический рендер
+    function dynamic(render) {
+        const anchor = document.createComment("h-dynamic");
+        let currentNode = null;
+        const update = () => {
+            const newNode = render();
+            if (!(newNode instanceof Node)) {
+                throw new Error("render() должен возвращать DOM Node");
+            }
+            if (currentNode) {
+                currentNode.replaceWith(newNode);
+            } else {
+                anchor.replaceWith(newNode);
+            }
+            currentNode = newNode;
+        };
+        update();
+        return anchor;
+    }
 
     // Удаление элемента
     function unmount(el) {
@@ -47,8 +71,10 @@
         el.remove();
     }
 
-
     function h(elementName, props = {}) {
+        if (typeof elementName === 'function') {
+            return dynamic(elementName);
+        }
         const el = document.createElement(elementName)
 
         el.__cleanup = []
@@ -124,8 +150,28 @@
                     break
                 case "children":
                     value.forEach((child) => {
-                        const [childTag, childProps] = child
-                        el.appendChild(h(childTag, childProps))
+                        if (typeof child === 'function') {
+                            const placeholder = document.createComment("effect");
+                            el.appendChild(placeholder);
+                            let currentNode = null;
+                            const update = () => {
+                                CURRENT_EFFECT = update;
+                                const result = child();
+                                CURRENT_EFFECT = null;
+                                const [tag, props] = result;
+                                const newNode = h(tag, props);
+                                if (currentNode) {
+                                    currentNode.replaceWith(newNode);
+                                } else {
+                                    placeholder.replaceWith(newNode);
+                                }
+                                currentNode = newNode;
+                            };
+                            update();
+                        } else {
+                            const [childTag, childProps] = child
+                            el.appendChild(h(childTag, childProps))
+                        }
                     })
                     break
                 default:
@@ -142,5 +188,3 @@
 
     window.h = h
 })(window)
-
-
