@@ -51,18 +51,4 @@ document.addEventListener("DOMContentLoaded", function () {
         },
         )
     )
-
-
-    document.body.appendChild(h("div", {text: color.value + 'ddddddddddddddddd'}))
-
-    document.body.appendChild(
-        h(() => {
-            console.log('render')
-            return color.value === 'red' ?
-                h("div", { text: "Красный" }) :
-                h("div", { text: "Не красный" })
-        }
-        )
-    )
-
 })
