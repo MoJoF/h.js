@@ -158,22 +158,28 @@
                                 CURRENT_EFFECT = update;
                                 const result = child();
                                 CURRENT_EFFECT = null;
-                                const [tag, props] = result;
-                                const newNode = h(tag, props);
+                                const node = Array.isArray(result)
+                                    ? h(result[0], result[1])
+                                    : result instanceof Node
+                                        ? result
+                                        : document.createTextNode(result);
+
                                 if (currentNode) {
-                                    currentNode.replaceWith(newNode);
+                                    currentNode.replaceWith(node);
                                 } else {
-                                    placeholder.replaceWith(newNode);
+                                    placeholder.replaceWith(node);
                                 }
-                                currentNode = newNode;
+
+                                currentNode = node;
                             };
                             update();
-                        } else {
-                            const [childTag, childProps] = child
-                            el.appendChild(h(childTag, childProps))
                         }
-                    })
-                    break
+                        else {
+                            const [childTag, childProps] = child;
+                            el.appendChild(h(childTag, childProps));
+                        }
+                    });
+                    break;
                 default:
                     if (isSignal(value)) bind(value, v => el[key] = v, el)
                     else el[key] = value
