@@ -13,7 +13,7 @@
  * @prop {string} props.id - добавление id
  * 
  * @prop {object} props.attrs - инициализация data-атрибутов
- * @prop_view { attrKey, attrValue } — ключ-значение — атрибута
+ * @prop_view { key, value } — ключ-значение — атрибута
  * 
  * @prop {object} props.on - слушатели событий
  * @prop_view { click: <function> }
@@ -22,7 +22,7 @@
  * @prop_view children: [["название_тега", { props }], ["название_тега", { props }]] - создание дочерних элементов
  * 
  * @prop {object} props.dataset - инициализация data-атрибутов
- * @prop_view { dataKey, dataValue } — ключ-значение — атрибута
+ * @prop_view { key, value } — ключ-значение — атрибута
 */
 
 (function (global) {

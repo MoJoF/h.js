@@ -64,7 +64,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 
                 // Условный рендеринг
                 () => {
-                    if (count.value === 1) return ["h1", { text: "Один" }]
+                    if (count.value === 0) return ["h1", { text: "0" }]
+                    else if (count.value === 1) return ["h1", { text: "Один" }]
                     else if (count.value === 2) return ["h1", { text: "Два" }]
                     else return ["h1", { text: "Много" }]
                 },
