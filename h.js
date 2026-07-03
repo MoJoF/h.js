@@ -79,26 +79,40 @@
         el.remove();
     }
 
-    function processCSS(o, el) {
-        Object.entries(o).forEach(cssElement => {
-            const [cssKey, cssValue] = cssElement
-            if (isSignal(cssValue)) bind(cssValue, (v) => el.style[cssKey] = v, el)
-            else { el.style[cssKey] = cssValue }
+    function bindComputed(getter, setter, el) {
+        const update = () => {
+            CURRENT_EFFECT = update
+            setter(getter())
+            CURRENT_EFFECT = null
+        }
+        update()
+
+        if (!el.__cleanup) el.__cleanup = []
+        el.__cleanup.push(() => { })
+    }
+
+    function processReactive(value, setter, el) {
+        if (typeof value === 'function') bindComputed(value, setter, el)
+        else if (isSignal(value)) bind(value, setter, el)
+        else setter(value)
+    }
+
+    function processCSS(css, el) {
+        Object.entries(css).forEach(([key, value]) => {
+            processReactive(value, v => el.style[key] = v), el
         })
     }
 
     function processText(o, el) {
-        if (typeof o === 'function') {
-            const update = () => {
-                CURRENT_EFFECT = update
-                el.textContent = o()
-                CURRENT_EFFECT = null
-            }
-            update()
-            return
-        }
-        if (isSignal(o)) bind(o, v => el.textContent = v, el)
-        else el.textContent = o
+        processReactive(o, v => el.textContent = v, el)
+    }
+
+    function processId(o, el) {
+        processReactive(o, v => el.id = v, el)
+    }
+
+    function processClassName(o, el) {
+        processReactive(o, v => el.className = v, el)
     }
 
     function processEvents(o, el) {
@@ -108,20 +122,20 @@
         })
     }
 
-    function processAttrs(o, el) {
-        Object.entries(o).forEach((attritem) => {
-            const [attrKey, attrValue] = attritem
-            if (isSignal(attrValue)) bind(attrValue, v => el.setAttribute(attrKey, v), el)
-            else el.setAttribute(attrKey, attrValue)
+    function processAttrs(attrs, el) {
+        Object.entries(attrs).forEach(([key, value]) => {
+            processReactive(value, v => el.setAttribute(key, value), el)
         })
     }
 
-    function processDataset(o, el) {
-        Object.entries(o).forEach((dataitem) => {
-            const [dataKey, dataValue] = dataitem
-            if (isSignal(dataValue)) bind(dataValue, v => el.dataset[dataKey] = v, el)
-            else el.dataset[dataKey] = dataValue
+    function processDataset(dataset, el) {
+        Object.entries(dataset).forEach(([key, value]) => {
+            processReactive(value, v => el.dataset[key] = value, el)
         })
+    }
+
+    function processDefault(o, key, el) {
+        processReactive(o, v => el[key] = v, el)
     }
 
     // Статический рендер
@@ -261,12 +275,10 @@
                     processText(value, el)
                     break
                 case "className":
-                    if (isSignal(value)) bind(value, v => el.className = v, el)
-                    else el.className = value
+                    processClassName(value, el)
                     break
                 case "id":
-                    if (isSignal(value)) bind(value, v => el.id = v, el)
-                    else el.id = value
+                    processId(value, el)
                     break
                 case "on":
                     processEvents(value, el)
@@ -281,8 +293,7 @@
                     processChildren(value, el)
                     break;
                 default:
-                    if (isSignal(value)) bind(value, v => el[key] = v, el)
-                    else el[key] = value
+                    processDefault(value, key, el)
                     break
             }
         }
