@@ -99,7 +99,7 @@
 
     function processCSS(css, el) {
         Object.entries(css).forEach(([key, value]) => {
-            processReactive(value, v => el.style[key] = v), el
+            processReactive(value, v => el.style[key] = v, el)
         })
     }
 
@@ -124,13 +124,13 @@
 
     function processAttrs(attrs, el) {
         Object.entries(attrs).forEach(([key, value]) => {
-            processReactive(value, v => el.setAttribute(key, value), el)
+            processReactive(value, v => el.setAttribute(key, v), el)
         })
     }
 
     function processDataset(dataset, el) {
         Object.entries(dataset).forEach(([key, value]) => {
-            processReactive(value, v => el.dataset[key] = value, el)
+            processReactive(value, v => el.dataset[key] = v, el)
         })
     }
 
