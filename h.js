@@ -103,22 +103,21 @@
         })
     }
 
-    function processText(o, el) {
-        processReactive(o, v => el.textContent = v, el)
+    function processText(text, el) {
+        processReactive(text, v => el.textContent = v, el)
     }
 
-    function processId(o, el) {
-        processReactive(o, v => el.id = v, el)
+    function processId(id, el) {
+        processReactive(id, v => el.id = v, el)
     }
 
-    function processClassName(o, el) {
-        processReactive(o, v => el.className = v, el)
+    function processClassName(className, el) {
+        processReactive(className, v => el.className = v, el)
     }
 
-    function processEvents(o, el) {
-        Object.entries(o).forEach((ar) => {
-            const [event, fn] = ar
-            el.addEventListener(event, fn)
+    function processEvents(events, el) {
+        Object.entries(events).forEach(([event, handler]) => {
+            el.addEventListener(event, handler)
         })
     }
 
@@ -134,8 +133,8 @@
         })
     }
 
-    function processDefault(o, key, el) {
-        processReactive(o, v => el[key] = v, el)
+    function processDefault(value, key, el) {
+        processReactive(value, v => el[key] = v, el)
     }
 
     // Статический рендер
