@@ -1,4 +1,3 @@
-
 (function (global) {
     let CURRENT_EFFECT = null;
 
@@ -43,6 +42,15 @@
         });
     }
 
+    // Рендер array сигналов
+    function each(signal, render) {
+        return {
+            __isEach: true,
+            signal,
+            render
+        };
+    }
+
     // Динамический рендер
     function dynamic(render) {
         const anchor = document.createComment("h-dynamic");
@@ -69,6 +77,37 @@
             el.__cleanup.forEach(fn => fn());
         }
         el.remove();
+    }
+
+    function processCSS(o, el) {
+        Object.entries(o).forEach(cssElement => {
+            const [cssKey, cssValue] = cssElement
+            if (isSignal(cssValue)) bind(cssValue, (v) => el.style[cssKey] = v, el)
+            else { el.style[cssKey] = cssValue }
+        })
+    }
+
+    function processEvents(o, el) {
+        Object.entries(o).forEach((ar) => {
+            const [event, fn] = ar
+            el.addEventListener(event, fn)
+        })
+    }
+
+    function processAttrs(o, el) {
+        Object.entries(o).forEach((attritem) => {
+            const [attrKey, attrValue] = attritem
+            if (isSignal(attrValue)) bind(attrValue, v => el.setAttribute(attrKey, v), el)
+            else el.setAttribute(attrKey, attrValue)
+        })
+    }
+
+    function processDataset(o, el) {
+        Object.entries(o).forEach((dataitem) => {
+            const [dataKey, dataValue] = dataitem
+            if (isSignal(dataValue)) bind(dataValue, v => el.dataset[dataKey] = v, el)
+            else el.dataset[dataKey] = dataValue
+        })
     }
 
     function h(elementName, props = {}) {
@@ -109,12 +148,7 @@
         for (const [key, value] of Object.entries(props)) {
             switch (key) {
                 case "css":
-                    // Object.assign(el.style, value)
-                    Object.entries(value).forEach(cssElement => {
-                        const [cssKey, cssValue] = cssElement
-                        if (isSignal(cssValue)) bind(cssValue, (v) => el.style[cssKey] = v, el)
-                        else { el.style[cssKey] = cssValue }
-                    })
+                    processCSS(value, el)
                     break
                 case "text":
                     if (isSignal(value)) bind(value, v => el.textContent = v, el)
@@ -129,28 +163,51 @@
                     else el.id = value
                     break
                 case "on":
-                    Object.entries(value).forEach((ar) => {
-                        const [event, fn] = ar
-                        el.addEventListener(event, fn)
-                    })
+                    processEvents(value, el)
                     break
                 case "attrs":
-                    Object.entries(value).forEach((attritem) => {
-                        const [attrKey, attrValue] = attritem
-                        if (isSignal(attrValue)) bind(attrValue, v => el.setAttribute(attrKey, v), el)
-                        else el.setAttribute(attrKey, attrValue)
-                    })
+                    processAttrs(value, el)
                     break
                 case "dataset":
-                    Object.entries(value).forEach((dataitem) => {
-                        const [dataKey, dataValue] = dataitem
-                        if (isSignal(dataValue)) bind(dataValue, v => el.dataset[dataKey] = v, el)
-                        else el.dataset[dataKey] = dataValue
-                    })
+                    processDataset(value, el)
                     break
                 case "children":
                     value.forEach((child) => {
                         if (typeof child === 'function') {
+                            // Рендер списков
+                            if (child.__isEach) {
+                                const placeholder = document.createComment("each");
+                                el.appendChild(placeholder);
+
+                                let nodes = [];
+
+                                const update = () => {
+                                    nodes.forEach(node => node.remove());
+                                    nodes = [];
+
+                                    child.signal.value.forEach(item => {
+                                        const [tag, props] = child.render(item);
+
+                                        const node = h(tag, props);
+
+                                        nodes.push(node);
+
+                                        placeholder.parentNode.insertBefore(node, placeholder);
+                                    });
+                                };
+
+                                update();
+
+                                child.signal._subscribe(update);
+
+                                placeholder.__cleanup ??= [];
+                                placeholder.__cleanup.push(() => {
+                                    child.signal._unsubscribe(update);
+                                });
+
+                                continue;
+                            }
+
                             const placeholder = document.createComment("effect");
                             el.appendChild(placeholder);
                             let currentNode = null;
@@ -191,6 +248,7 @@
 
     h.unmount = unmount
     h.signal = signal
+    h.each = each
 
     window.h = h
 })(window)

@@ -28,6 +28,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const count = h.signal(1)
     const color = h.signal('red')
 
+
+    const tasks = h.signal(['Поработать', 'Купить хлеба', "Пойти домой"])
+
+    document.body.appendChild(
+        h('ul', { children: 
+            h.each(tasks, item => 
+                ["li", { text: item }]
+            )
+        })
+    )
+
     document.body.appendChild(
         h("main", {
             css: { width: "100vw", height: '10vh' },
