@@ -87,6 +87,20 @@
         })
     }
 
+    function processText(o, el) {
+        if (typeof o === 'function') {
+            const update = () => {
+                CURRENT_EFFECT = update
+                el.textContent = o()
+                CURRENT_EFFECT = null
+            }
+            update()
+            return
+        }
+        if (isSignal(o)) bind(o, v => el.textContent = v, el)
+        else el.textContent = o
+    }
+
     function processEvents(o, el) {
         Object.entries(o).forEach((ar) => {
             const [event, fn] = ar
@@ -108,6 +122,99 @@
             if (isSignal(dataValue)) bind(dataValue, v => el.dataset[dataKey] = v, el)
             else el.dataset[dataKey] = dataValue
         })
+    }
+
+    // Статический рендер
+    function renderStaticChild(child, el) {
+        const [childTag, childProps] = child;
+        el.appendChild(h(childTag, childProps));
+    }
+
+    function normalizeNode(result) {
+        if (result instanceof Node)
+            return result;
+        if (Array.isArray(result)) {
+            if (typeof result[0] === "string")
+                return h(result[0], result[1]);
+            if (result.every(node => node instanceof Node)) {
+                const fragment = document.createDocumentFragment();
+                result.forEach(node => fragment.appendChild(node));
+                return fragment;
+            }
+        }
+        return document.createTextNode(String(result));
+    }
+
+    // Динамический рендеринг
+    function renderDynamicChild(child, el) {
+        const placeholder = document.createComment("effect");
+        el.appendChild(placeholder);
+
+        let currentNode = placeholder;
+
+        const update = () => {
+            CURRENT_EFFECT = update;
+            const result = child();
+            CURRENT_EFFECT = null;
+
+            const node = normalizeNode(result);
+
+            currentNode.replaceWith(node);
+            currentNode = node;
+        };
+
+        update();
+    }
+
+    // Рендер списков
+    function renderListChild(child, el) {
+        const placeholder = document.createComment("each");
+        el.appendChild(placeholder);
+
+        let currentNodes = [];
+
+        const update = () => {
+            // Удаляем старые элементы
+            currentNodes.forEach(unmount);
+            currentNodes = [];
+
+            const parent = placeholder.parentNode;
+            if (!parent) return;
+
+            const items = child.signal.value;
+
+            for (const item of items) {
+                const result = child.render(item);
+
+                const node = result instanceof Node
+                    ? result
+                    : h(result[0], result[1]);
+
+                currentNodes.push(node);
+                parent.insertBefore(node, placeholder);
+            }
+        };
+
+        update();
+
+        child.signal._subscribe(update);
+
+        placeholder.__cleanup ??= [];
+        placeholder.__cleanup.push(() => {
+            child.signal._unsubscribe(update);
+        });
+    }
+
+    function processChildren(children, el) {
+        if (!Array.isArray(children)) {
+            children = [children]
+        }
+
+        for (const child of children) {
+            if (child?.__isEach) renderListChild(child, el)
+            else if (typeof child === 'function') renderDynamicChild(child, el)
+            else renderStaticChild(child, el)
+        }
     }
 
     function h(elementName, props = {}) {
@@ -151,8 +258,7 @@
                     processCSS(value, el)
                     break
                 case "text":
-                    if (isSignal(value)) bind(value, v => el.textContent = v, el)
-                    else el.textContent = value
+                    processText(value, el)
                     break
                 case "className":
                     if (isSignal(value)) bind(value, v => el.className = v, el)
@@ -172,70 +278,7 @@
                     processDataset(value, el)
                     break
                 case "children":
-                    value.forEach((child) => {
-                        if (typeof child === 'function') {
-                            // Рендер списков
-                            if (child.__isEach) {
-                                const placeholder = document.createComment("each");
-                                el.appendChild(placeholder);
-
-                                let nodes = [];
-
-                                const update = () => {
-                                    nodes.forEach(node => node.remove());
-                                    nodes = [];
-
-                                    child.signal.value.forEach(item => {
-                                        const [tag, props] = child.render(item);
-
-                                        const node = h(tag, props);
-
-                                        nodes.push(node);
-
-                                        placeholder.parentNode.insertBefore(node, placeholder);
-                                    });
-                                };
-
-                                update();
-
-                                child.signal._subscribe(update);
-
-                                placeholder.__cleanup ??= [];
-                                placeholder.__cleanup.push(() => {
-                                    child.signal._unsubscribe(update);
-                                });
-
-                                continue;
-                            }
-
-                            const placeholder = document.createComment("effect");
-                            el.appendChild(placeholder);
-                            let currentNode = null;
-                            const update = () => {
-                                CURRENT_EFFECT = update;
-                                const result = child();
-                                CURRENT_EFFECT = null;
-                                const node = Array.isArray(result)
-                                    ? h(result[0], result[1])
-                                    : result instanceof Node
-                                        ? result
-                                        : document.createTextNode(result);
-
-                                if (currentNode) {
-                                    currentNode.replaceWith(node);
-                                } else {
-                                    placeholder.replaceWith(node);
-                                }
-
-                                currentNode = node;
-                            };
-                            update();
-                        }
-                        else {
-                            const [childTag, childProps] = child;
-                            el.appendChild(h(childTag, childProps));
-                        }
-                    });
+                    processChildren(value, el)
                     break;
                 default:
                     if (isSignal(value)) bind(value, v => el[key] = v, el)
