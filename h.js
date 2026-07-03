@@ -285,9 +285,11 @@
         return el
     }
 
-    h.unmount = unmount
-    h.signal = signal
-    h.each = each
-
+    Object.assign(h, {
+        unmount,
+        signal,
+        each
+    })
+    
     window.h = h
 })(window)
