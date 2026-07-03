@@ -1,3 +1,30 @@
+/**
+ * Создание элемента
+ * @param {string} elementName - название тега
+ * 
+ * @param {object} props - свойства
+ *  
+ * @prop {string} props.text - el.textContent
+ * 
+ * @prop {object} props.css - инициализация CSS
+ * 
+ * @prop {string} props.className - добавление className    
+ * 
+ * @prop {string} props.id - добавление id
+ * 
+ * @prop {object} props.attrs - инициализация data-атрибутов
+ * @prop_view { attrKey, attrValue } — ключ-значение — атрибута
+ * 
+ * @prop {object} props.on - слушатели событий
+ * @prop_view { click: <function> }
+ * 
+ * @prop {array} props.children - добавление дочерних элементов
+ * @prop_view children: [["название_тега", { props }], ["название_тега", { props }]] - создание дочерних элементов
+ * 
+ * @prop {object} props.dataset - инициализация data-атрибутов
+ * @prop_view { dataKey, dataValue } — ключ-значение — атрибута
+*/
+
 (function (global) {
     let CURRENT_EFFECT = null;
 
@@ -230,6 +257,18 @@
         }
     }
 
+    // Обработчики
+    const processors = {
+        css: processCSS,
+        text: processText,
+        id: processId,
+        className: processClassName,
+        on: processEvents,
+        attrs: processAttrs,
+        dataset: processDataset,
+        children: processChildren
+    }
+
     function h(elementName, props = {}) {
         if (typeof elementName === 'function') {
             return dynamic(elementName);
@@ -238,63 +277,10 @@
 
         el.__cleanup = []
 
-        /**
-         * Создание элемента
-         * @param {string} elementName - название тега
-         * 
-         * @param {object} props - свойства
-         *  
-         * @prop {string} props.text - el.textContent
-         * 
-         * @prop {object} props.css - инициализация CSS
-         * 
-         * @prop {string} props.className - добавление className    
-         * 
-         * @prop {string} props.id - добавление id
-         * 
-         * @prop {object} props.attrs - инициализация data-атрибутов
-         * @prop_view { attrKey, attrValue } — ключ-значение — атрибута
-         * 
-         * @prop {object} props.on - слушатели событий
-         * @prop_view { click: <function> }
-         * 
-         * @prop {array} props.children - добавление дочерних элементов
-         * @prop_view children: [["название_тега", { props }], ["название_тега", { props }]] - создание дочерних элементов
-         * 
-         * @prop {object} props.dataset - инициализация data-атрибутов
-         * @prop_view { dataKey, dataValue } — ключ-значение — атрибута
-        */
-
         for (const [key, value] of Object.entries(props)) {
-            switch (key) {
-                case "css":
-                    processCSS(value, el)
-                    break
-                case "text":
-                    processText(value, el)
-                    break
-                case "className":
-                    processClassName(value, el)
-                    break
-                case "id":
-                    processId(value, el)
-                    break
-                case "on":
-                    processEvents(value, el)
-                    break
-                case "attrs":
-                    processAttrs(value, el)
-                    break
-                case "dataset":
-                    processDataset(value, el)
-                    break
-                case "children":
-                    processChildren(value, el)
-                    break;
-                default:
-                    processDefault(value, key, el)
-                    break
-            }
+            const processor = processors[key]
+            if (processor) processor(value, el)
+            else processDefault(value, key, el)
         }
         return el
     }
