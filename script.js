@@ -10,6 +10,7 @@ const showCart = h.signal(false)
 
 const tasks = h.signal(['Поработать', 'Купить хлеба', "Пойти домой"])
 
+
 document.addEventListener("DOMContentLoaded", function () {
     const count = h.signal(0);
 

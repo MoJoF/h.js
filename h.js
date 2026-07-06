@@ -269,27 +269,71 @@
         children: processChildren
     }
 
+    function applyProps(el, props) {
+        el.__cleanup ??= [];
+        for (const [key, value] of Object.entries(props)) {
+            const processor = processors[key];
+            if (processor) processor(value, el);
+            else processDefault(value, key, el);
+        }
+    }
+
+    /**
+     * Функция для привязки обработчиков событий и свойств к существующему элементу в DOM.
+     * 
+     * Эта функция позволяет выбрать элемент в DOM с помощью CSS-селектора и применить к нему набор свойств и обработчиков событий.Ц
+     * @param {string} selector 
+     * @param {object} props 
+     * @returns 
+     */
+    function attach(selector, props) {
+        const el = document.querySelector(selector)
+        if (!el) return null
+        applyProps(el, props)
+        return el
+    }
+
+    /**
+     * Функция для привязки обработчиков событий и свойств ко всем элементам, соответствующим CSS-селектору.
+     * 
+     * Эта функция позволяет выбрать все элементы в DOM, соответствующие CSS-селектору, и применить к ним набор свойств и обработчиков событий.
+     * @param {string} selector 
+     * @param {object} props 
+     * @returns 
+     */
+    function attachAll(selector, props) {
+        const elements = document.querySelectorAll(selector)
+        if (!elements) return []
+        elements.forEach(el => applyProps(el, props))
+        return elements
+    }
+
     function h(elementName, props = {}) {
         if (typeof elementName === 'function') {
             return dynamic(elementName);
         }
         const el = document.createElement(elementName)
 
-        el.__cleanup = []
-
-        for (const [key, value] of Object.entries(props)) {
-            const processor = processors[key]
-            if (processor) processor(value, el)
-            else processDefault(value, key, el)
-        }
+        applyProps(el, props)
+        
         return el
     }
 
+    const meta = {
+        name: 'h',
+        version: '1.0.0',
+        __is_h: true,
+        description: 'A lightweight reactive DOM library for creating and managing HTML elements with support for signals, dynamic rendering, and event handling.',
+    }
+
     Object.assign(h, {
+        meta,
         unmount,
         signal,
-        each
+        each,
+        attach,
+        attachAll,
     })
-    
+
     window.h = h
 })(window)
