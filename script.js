@@ -36,4 +36,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.body.appendChild(app);
+
+    h.portal(document.body, h('div', { text: 'Это портал!' }));
 })
