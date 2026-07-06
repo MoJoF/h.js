@@ -269,6 +269,8 @@
         children: processChildren
     }
 
+    function addProcessor(key, processor) { processors[key] = processor }
+
     function applyProps(el, props) {
         el.__cleanup ??= [];
         for (const [key, value] of Object.entries(props)) {
@@ -332,6 +334,7 @@
         each,
         attach,
         attachAll,
+        addProcessor,
     })
 
     window.h = h

@@ -30,12 +30,13 @@ document.addEventListener("DOMContentLoaded", function () {
             }],
 
             () => count.value >= 5
-                ? ["div", { text: "🎉 Отлично!" }]
+                ? ["div", { text: "🎉 Отлично!", on: {
+                    click: () => { h.attachAll('p', { animate: { duration: 500, transform: 'translateX(100px)' } }) }
+                } }]
                 : ["div", { text: "Продолжайте нажимать..." }]
         ]
     });
 
     document.body.appendChild(app);
-
-    h.portal(document.body, h('div', { text: 'Это портал!' }));
+    h.attachAll('p', { text: count })
 })
