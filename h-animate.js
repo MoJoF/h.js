@@ -36,26 +36,30 @@
         let raf = null
 
         if (onUpdate) {
+
             const tick = () => {
-                if (animation.playState !== "running") {
-                    cancelAnimationFrame(raf)
-                    return
-                }
-                const timing = animation.effect.getTiming()
-                const progress = Math.min(
-                    (animation.currentTime ?? 0) / timing.duration,
-                    1
-                )
+
+                const timing = animation.effect?.getTiming?.();
+                const duration = timing?.duration ?? 300;
+
+                const current = animation.currentTime ?? 0;
+
+                const progress = Math.min(current / duration, 1);
+
                 onUpdate({
                     progress,
-                    currentTime: animation.currentTime ?? 0,
-                    duration: timing.duration,
+                    currentTime: current,
+                    duration,
                     animation,
                     element: el
-                })
-                raf = requestAnimationFrame(tick)
-            }
-            raf = requestAnimationFrame(tick)
+                });
+
+                if (progress < 1) {
+                    raf = requestAnimationFrame(tick);
+                }
+            };
+
+            raf = requestAnimationFrame(tick);
         }
 
         animation.finished

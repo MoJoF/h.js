@@ -305,7 +305,6 @@
      */
     function attachAll(selector, props) {
         const elements = document.querySelectorAll(selector)
-        if (!elements) return []
         elements.forEach(el => applyProps(el, props))
         return elements
     }
