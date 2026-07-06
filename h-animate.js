@@ -13,15 +13,12 @@
             duration = 300,
             easing = "ease",
             fill = "forwards",
-
             onStart,
             onUpdate,
             onComplete,
             onCancel,
-
             ...styles
         } = options
-
         const animation = el.animate(
             [{}, styles],
             {
@@ -30,22 +27,14 @@
                 fill
             }
         )
-
         onStart?.(el, animation)
-
         let raf = null
-
         if (onUpdate) {
-
             const tick = () => {
-
                 const timing = animation.effect?.getTiming?.();
                 const duration = timing?.duration ?? 300;
-
                 const current = animation.currentTime ?? 0;
-
                 const progress = Math.min(current / duration, 1);
-
                 onUpdate({
                     progress,
                     currentTime: current,
@@ -53,15 +42,12 @@
                     animation,
                     element: el
                 });
-
                 if (progress < 1) {
                     raf = requestAnimationFrame(tick);
                 }
             };
-
             raf = requestAnimationFrame(tick);
         }
-
         animation.finished
             .then(() => {
                 if (raf !== null) {
@@ -79,7 +65,6 @@
     }
 
     h._internals.addProcessor("animate", (value, el) => animate(el, value))
-
     h.animate = animate
 
 })(window.h)

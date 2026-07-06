@@ -1,6 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
     const count = h.signal(0);
 
+    document.body.appendChild(
+        h("span", { id: 'status' })
+    )
+
     const app = h("main", {
         css: {
             padding: "30px",
@@ -32,9 +36,9 @@ document.addEventListener("DOMContentLoaded", function () {
                                 animate: {
                                     duration: 500, 
                                     transform: 'translateX(100px)', 
-                                    onUpdate: ({ progress }) => console.log("Прогресс:", progress),
-                                    onStart: () => console.log('Animation started'),
-                                    onComplete: () => console.log('Animation completed!')
+                                    onUpdate: ({ progress }) => h.attach('#status', { text: () => (progress * 100).toFixed(2) + '%' }),
+                                    onStart: () => h.attach('#status', { text: 'Start' }),
+                                    onComplete: () => h.attach('#status', { text: 'Complete' })
                                 }
                             })
                         }
