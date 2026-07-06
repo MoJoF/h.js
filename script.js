@@ -1,16 +1,3 @@
-menuLinks = [
-    { text: "Главная", link: "/" },
-    { text: "О нас", link: "/about" },
-    { text: "Контакты", link: "/contacts" }
-]
-
-const count = h.signal(1)
-const color = h.signal('#121212')
-const showCart = h.signal(false)
-
-const tasks = h.signal(['Поработать', 'Купить хлеба', "Пойти домой"])
-
-
 document.addEventListener("DOMContentLoaded", function () {
     const count = h.signal(0);
 
@@ -24,19 +11,41 @@ document.addEventListener("DOMContentLoaded", function () {
 
         children: [
             ["h1", { text: "h.js Demo" }],
+            
             ["button", {
                 text: () => `Нажато ${count.value} раз`,
                 on: { click() { count.value++; } }
             }],
 
+            // ИСПРАВЛЕНО: Добавили параграфы прямо в дерево, чтобы они отрендерились
+            ["p", { text: "Первый анимированный параграф" }],
+            ["p", { text: "Второй анимированный параграф" }],
+
             () => count.value >= 5
-                ? ["div", { text: "🎉 Отлично!", on: {
-                    click: () => { h.attachAll('p', { animate: { duration: 500, transform: 'translateX(100px)' } }) }
-                } }]
+                ? ["div", {
+                    text: "🎉 Отлично! Нажми сюда для анимации", 
+                    css: { cursor: "pointer", fontWeight: "bold", color: "green" },
+                    on: {
+                        click: () => {
+                            // Находит созданные выше теги 'p' и запускает плагин
+                            h.attachAll('p', {
+                                animate: {
+                                    duration: 500, 
+                                    transform: 'translateX(100px)', 
+                                    onUpdate: ({ progress }) => console.log("Прогресс:", progress),
+                                    onStart: () => console.log('Animation started'),
+                                    onComplete: () => console.log('Animation completed!')
+                                }
+                            })
+                        }
+                    }
+                }]
                 : ["div", { text: "Продолжайте нажимать..." }]
         ]
     });
 
     document.body.appendChild(app);
-    h.attachAll('p', { text: count })
-})
+    
+    // Теперь эта строка успешно свяжет сигнал со всеми параграфами p
+    h.attachAll('p', { text: () => `Счетчик в тексте: ${count.value}` });
+});

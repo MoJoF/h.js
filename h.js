@@ -26,7 +26,7 @@
 */
 
 (function (global) {
-    let CURRENT_EFFECT = null;
+    let CURRENT_EFFECT = null
 
     /**
      * Создание сигнала (реактивная переменная)
@@ -37,13 +37,13 @@
             __isSignal: true,
             get value() {
                 if (CURRENT_EFFECT) {
-                    listeners.add(CURRENT_EFFECT);
+                    listeners.add(CURRENT_EFFECT)
                 }
                 return v
             },
             set value(newValue) {
                 v = newValue
-                listeners.forEach(fn => fn());
+                listeners.forEach(fn => fn())
             },
             _subscribe(fn) { listeners.add(fn) },
             _unsubscribe(fn) { listeners.delete(fn) }
@@ -52,21 +52,21 @@
 
     // Проверка, является ли переменная сигналом
     function isSignal(v) {
-        return v?.__isSignal === true;
+        return v?.__isSignal === true
     }
 
     // Прикрепление подписки
     function bind(signal, setter, el) {
-        const update = () => setter(signal.value);
+        const update = () => setter(signal.value)
 
-        setter(signal.value);
-        signal._subscribe(update);
+        setter(signal.value)
+        signal._subscribe(update)
 
-        if (!el.__cleanup) el.__cleanup = [];
+        if (!el.__cleanup) el.__cleanup = []
 
         el.__cleanup.push(() => {
-            signal._unsubscribe(update);
-        });
+            signal._unsubscribe(update)
+        })
     }
 
     // Рендер array сигналов
@@ -75,35 +75,35 @@
             __isEach: true,
             signal,
             render
-        };
+        }
     }
 
     // Динамический рендер
     function dynamic(render) {
-        const anchor = document.createComment("h-dynamic");
-        let currentNode = null;
+        const anchor = document.createComment("h-dynamic")
+        let currentNode = null
         const update = () => {
-            const newNode = render();
+            const newNode = render()
             if (!(newNode instanceof Node)) {
-                throw new Error("render() должен возвращать DOM Node");
+                throw new Error("render() должен возвращать DOM Node")
             }
             if (currentNode) {
-                currentNode.replaceWith(newNode);
+                currentNode.replaceWith(newNode)
             } else {
-                anchor.replaceWith(newNode);
+                anchor.replaceWith(newNode)
             }
-            currentNode = newNode;
-        };
-        update();
-        return anchor;
+            currentNode = newNode
+        }
+        update()
+        return anchor
     }
 
     // Удаление элемента
     function unmount(el) {
         if (el.__cleanup) {
-            el.__cleanup.forEach(fn => fn());
+            el.__cleanup.forEach(fn => fn())
         }
-        el.remove();
+        el.remove()
     }
 
     function bindComputed(getter, setter, el) {
@@ -166,83 +166,83 @@
 
     // Статический рендер
     function renderStaticChild(child, el) {
-        const [childTag, childProps] = child;
-        el.appendChild(h(childTag, childProps));
+        const [childTag, childProps] = child
+        el.appendChild(h(childTag, childProps))
     }
 
     function normalizeNode(result) {
         if (result instanceof Node)
-            return result;
+            return result
         if (Array.isArray(result)) {
             if (typeof result[0] === "string")
-                return h(result[0], result[1]);
+                return h(result[0], result[1])
             if (result.every(node => node instanceof Node)) {
-                const fragment = document.createDocumentFragment();
-                result.forEach(node => fragment.appendChild(node));
-                return fragment;
+                const fragment = document.createDocumentFragment()
+                result.forEach(node => fragment.appendChild(node))
+                return fragment
             }
         }
-        return document.createTextNode(String(result));
+        return document.createTextNode(String(result))
     }
 
     // Динамический рендеринг
     function renderDynamicChild(child, el) {
-        const placeholder = document.createComment("effect");
-        el.appendChild(placeholder);
+        const placeholder = document.createComment("effect")
+        el.appendChild(placeholder)
 
-        let currentNode = placeholder;
+        let currentNode = placeholder
 
         const update = () => {
-            CURRENT_EFFECT = update;
-            const result = child();
-            CURRENT_EFFECT = null;
+            CURRENT_EFFECT = update
+            const result = child()
+            CURRENT_EFFECT = null
 
-            const node = normalizeNode(result);
+            const node = normalizeNode(result)
 
-            currentNode.replaceWith(node);
-            currentNode = node;
-        };
+            currentNode.replaceWith(node)
+            currentNode = node
+        }
 
-        update();
+        update()
     }
 
     // Рендер списков
     function renderListChild(child, el) {
-        const placeholder = document.createComment("each");
-        el.appendChild(placeholder);
+        const placeholder = document.createComment("each")
+        el.appendChild(placeholder)
 
-        let currentNodes = [];
+        let currentNodes = []
 
         const update = () => {
             // Удаляем старые элементы
-            currentNodes.forEach(unmount);
-            currentNodes = [];
+            currentNodes.forEach(unmount)
+            currentNodes = []
 
-            const parent = placeholder.parentNode;
-            if (!parent) return;
+            const parent = placeholder.parentNode
+            if (!parent) return
 
-            const items = child.signal.value;
+            const items = child.signal.value
 
             for (const item of items) {
-                const result = child.render(item);
+                const result = child.render(item)
 
                 const node = result instanceof Node
                     ? result
-                    : h(result[0], result[1]);
+                    : h(result[0], result[1])
 
-                currentNodes.push(node);
-                parent.insertBefore(node, placeholder);
+                currentNodes.push(node)
+                parent.insertBefore(node, placeholder)
             }
-        };
+        }
 
-        update();
+        update()
 
-        child.signal._subscribe(update);
+        child.signal._subscribe(update)
 
-        placeholder.__cleanup ??= [];
+        placeholder.__cleanup ??= []
         placeholder.__cleanup.push(() => {
-            child.signal._unsubscribe(update);
-        });
+            child.signal._unsubscribe(update)
+        })
     }
 
     function processChildren(children, el) {
@@ -272,11 +272,11 @@
     function addProcessor(key, processor) { processors[key] = processor }
 
     function applyProps(el, props) {
-        el.__cleanup ??= [];
+        el.__cleanup ??= []
         for (const [key, value] of Object.entries(props)) {
-            const processor = processors[key];
-            if (processor) processor(value, el);
-            else processDefault(value, key, el);
+            const processor = processors[key]
+            if (processor) processor(value, el)
+            else processDefault(value, key, el)
         }
     }
 
@@ -311,13 +311,9 @@
     }
 
     function h(elementName, props = {}) {
-        if (typeof elementName === 'function') {
-            return dynamic(elementName);
-        }
+        if (typeof elementName === 'function') return dynamic(elementName)
         const el = document.createElement(elementName)
-
         applyProps(el, props)
-        
         return el
     }
 
@@ -327,6 +323,8 @@
         description: 'A lightweight reactive DOM library for creating and managing HTML elements with support for signals, dynamic rendering, and event handling.',
     }
 
+    const _internals = { addProcessor, bind, bindComputed }
+
     Object.assign(h, {
         meta,
         unmount,
@@ -334,7 +332,7 @@
         each,
         attach,
         attachAll,
-        addProcessor,
+        _internals,
     })
 
     window.h = h

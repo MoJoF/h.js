@@ -3,7 +3,7 @@
         throw new Error("h.js is not loaded.")
     }
     /**
-     * 
+     * Анимирует элемент с помощью Web Animations API
      * @param {HTMLElement} el 
      * @param {*} options 
      * @returns 
@@ -21,7 +21,7 @@
 
             ...styles
         } = options
-        
+
         const animation = el.animate(
             [{}, styles],
             {
@@ -37,7 +37,10 @@
 
         if (onUpdate) {
             const tick = () => {
-                if (animation.playState !== "running") return
+                if (animation.playState !== "running") {
+                    cancelAnimationFrame(raf)
+                    return
+                }
                 const timing = animation.effect.getTiming()
                 const progress = Math.min(
                     (animation.currentTime ?? 0) / timing.duration,
@@ -71,7 +74,7 @@
         return animation
     }
 
-    h.addProcessor("animate", (value, el) => animate(el, value))
+    h._internals.addProcessor("animate", (value, el) => animate(el, value))
 
     h.animate = animate
 
