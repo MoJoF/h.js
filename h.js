@@ -46,7 +46,7 @@
             set value(newValue) {
                 if (Object.is(v, newValue)) return
                 v = newValue
-                    ;[...listeners].forEach(fn => fn())
+                for (const fn of [...listeners]) { fn() }
             }
         }
     }
@@ -97,7 +97,7 @@
     function removeNodes(nodes) {
         for (const node of nodes) {
             cleanupNode(node)
-            node.remove()
+            if (node.remove) node.remove()
         }
     }
 
@@ -129,7 +129,7 @@
     // Очистка событий с ноды
     function cleanupNode(el) {
         if (!el) return
-        
+
         if (el.__cleanup) {
             for (const cleanup of el.__cleanup) { cleanup() }
             delete el.__cleanup
@@ -141,20 +141,22 @@
     // Динамический рендер
     function dynamic(render) {
         const anchor = document.createComment("h-dynamic")
-        let currentNode = anchor
+        let currentNode = null
         const runner = effect(() => {
             const newNode = normalizeNode(render())
-            if (currentNode !== anchor) {
+            if (currentNode) {
                 cleanupNode(currentNode)
-                if (currentNode.parentNode) currentNode.replaceWith(newNode)
-            } else anchor.replaceWith(newNode)
+                currentNode.replaceWith(newNode)
+            }
+            else { anchor.replaceWith(newNode) }
             currentNode = newNode
         })
 
         anchor.__cleanup ??= []
         anchor.__cleanup.push(() => {
             stopEffect(runner)
-            if (currentNode !== anchor) cleanupNode(currentNode)
+            if (currentNode)
+                cleanupNode(currentNode)
         })
         return anchor
     }
