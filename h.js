@@ -26,7 +26,7 @@
 */
 
 (function (global) {
-    let CURRENT_EFFECT = null
+    const effectStack = []
 
     /**
      * Создание сигнала (реактивная переменная)
@@ -36,17 +36,18 @@
         return {
             __isSignal: true,
             get value() {
-                if (CURRENT_EFFECT) {
-                    listeners.add(CURRENT_EFFECT)
+                const active = effectStack.at(-1)
+                if (active && !listeners.has(active)) {
+                    listeners.add(active)
+                    active.deps.push(listeners)
                 }
                 return v
             },
             set value(newValue) {
+                if (Object.is(v, newValue)) return
                 v = newValue
-                listeners.forEach(fn => fn())
-            },
-            _subscribe(fn) { listeners.add(fn) },
-            _unsubscribe(fn) { listeners.delete(fn) }
+                    ;[...listeners].forEach(fn => fn())
+            }
         }
     }
 
@@ -55,25 +56,48 @@
         return v?.__isSignal === true
     }
 
+    // Работа со стеком эффектов
+    function effect(fn) {
+        const runner = () => {
+            if (!runner.active) return
+            cleanupEffect(runner)
+            effectStack.push(runner)
+            try { return fn() }
+            finally { effectStack.pop() }
+        }
+
+        runner.active = true
+        runner.deps = []
+        runner.stop = () => stopEffect(runner)
+        runner()
+        return runner
+    }
+
+    function cleanupEffect(runner) {
+        runner.deps.forEach(dep => dep.delete(runner))
+        runner.deps.length = 0
+    }
+
+    function stopEffect(runner) {
+        if (!runner.active) return
+        cleanupEffect(runner)
+        runner.active = false
+    }
+
     // Прикрепление подписки
     function bind(signal, setter, el) {
-        const update = () => setter(signal.value)
-
-        setter(signal.value)
-        signal._subscribe(update)
-
-        if (!el.__cleanup) el.__cleanup = []
-
-        el.__cleanup.push(() => {
-            signal._unsubscribe(update)
-        })
+        const runner = effect(() => { setter(signal.value) })
+        el.__cleanup ??= []
+        el.__cleanup.push(() => { stopEffect(runner) })
     }
 
     // Рендер array сигналов
-    function each(signal, render) {
+    function each(source, render) {
+        if (!isSignal(source)) throw new Error("h.each() expects a signal")
+
         return {
             __isEach: true,
-            signal,
+            signal: source,
             render
         }
     }
@@ -82,44 +106,52 @@
     function dynamic(render) {
         const anchor = document.createComment("h-dynamic")
         let currentNode = null
-        const update = () => {
-            const newNode = render()
-            if (!(newNode instanceof Node)) {
-                throw new Error("render() должен возвращать DOM Node")
-            }
-            if (currentNode) {
-                currentNode.replaceWith(newNode)
-            } else {
-                anchor.replaceWith(newNode)
-            }
+
+        const runner = effect(() => {
+            const newNode = normalizeNode(render())
+
+            if (currentNode) currentNode.replaceWith(newNode)
+
+            else anchor.replaceWith(newNode)
+
             currentNode = newNode
-        }
-        update()
+        })
+
+        anchor.__cleanup ??= []
+        anchor.__cleanup.push(() => { stopEffect(runner) })
+
         return anchor
     }
 
     // Удаление элемента
     function unmount(el) {
+        if (!el) return
+
+        if (el.childNodes) {
+            for (const child of [...el.childNodes]) {
+                if (child.nodeType === Node.ELEMENT_NODE) unmount(child) 
+            }
+        }
+
+
         if (el.__cleanup) {
-            el.__cleanup.forEach(fn => fn())
+            for (const cleanup of el.__cleanup) { cleanup() }
+            delete el.__cleanup
         }
         el.remove()
     }
 
-    function bindComputed(getter, setter, el) {
-        const update = () => {
-            CURRENT_EFFECT = update
+    function bindEffect(getter, setter, el) {
+        const runner = effect(() => {
             setter(getter())
-            CURRENT_EFFECT = null
-        }
-        update()
+        })
 
-        if (!el.__cleanup) el.__cleanup = []
-        el.__cleanup.push(() => { })
+        el.__cleanup ??= []
+        el.__cleanup.push(() => { stopEffect(runner) })
     }
 
     function processReactive(value, setter, el) {
-        if (typeof value === 'function') bindComputed(value, setter, el)
+        if (typeof value === 'function') bindEffect(value, setter, el)
         else if (isSignal(value)) bind(value, setter, el)
         else setter(value)
     }
@@ -145,6 +177,10 @@
     function processEvents(events, el) {
         Object.entries(events).forEach(([event, handler]) => {
             el.addEventListener(event, handler)
+
+            el.__cleanup ??= []
+
+            el.__cleanup.push(() => el.removeEventListener(event, handler))
         })
     }
 
@@ -192,40 +228,38 @@
 
         let currentNode = placeholder
 
-        const update = () => {
-            CURRENT_EFFECT = update
+        const runner = effect(() => {
             const result = child()
-            CURRENT_EFFECT = null
-
             const node = normalizeNode(result)
+
+            if (node === currentNode) return
 
             currentNode.replaceWith(node)
             currentNode = node
-        }
+        })
 
-        update()
+        placeholder.__cleanup ??= []
+        placeholder.__cleanup.push(() => { stopEffect(runner) })
     }
 
     // Рендер списков
     function renderListChild(child, el) {
-        const placeholder = document.createComment("each")
+        const placeholder = document.createComment("h-each")
         el.appendChild(placeholder)
 
         let currentNodes = []
 
-        const update = () => {
-            // Удаляем старые элементы
+        const runner = effect(() => {
             currentNodes.forEach(unmount)
             currentNodes = []
 
             const parent = placeholder.parentNode
             if (!parent) return
 
-            const items = child.signal.value
+            const items = child.signal.value ?? []
 
             for (const item of items) {
                 const result = child.render(item)
-
                 const node = result instanceof Node
                     ? result
                     : h(result[0], result[1])
@@ -233,16 +267,10 @@
                 currentNodes.push(node)
                 parent.insertBefore(node, placeholder)
             }
-        }
-
-        update()
-
-        child.signal._subscribe(update)
+        })
 
         placeholder.__cleanup ??= []
-        placeholder.__cleanup.push(() => {
-            child.signal._unsubscribe(update)
-        })
+        placeholder.__cleanup.push(() => { stopEffect(runner) })
     }
 
     function processChildren(children, el) {
@@ -289,7 +317,9 @@
      * @returns 
      */
     function attach(selector, props) {
-        const el = document.querySelector(selector)
+        const el = typeof selector === 'string'
+            ? document.querySelector(selector)
+            : selector
         if (!el) return null
         applyProps(el, props)
         return el
@@ -304,13 +334,17 @@
      * @returns 
      */
     function attachAll(selector, props) {
-        const elements = document.querySelectorAll(selector)
+        const elements = typeof selector === 'string'
+            ? document.querySelectorAll(selector)
+            : selector
         elements.forEach(el => applyProps(el, props))
         return elements
     }
 
     function h(elementName, props = {}) {
         if (typeof elementName === 'function') return dynamic(elementName)
+        if (typeof elementName !== 'string') throw new Error('h() expects tag name or render function')
+
         const el = document.createElement(elementName)
         applyProps(el, props)
         return el
@@ -322,7 +356,14 @@
         description: 'A lightweight reactive DOM library for creating and managing HTML elements with support for signals, dynamic rendering, and event handling.',
     }
 
-    const _internals = { addProcessor, bind, bindComputed }
+    const _internals = { 
+        addProcessor, 
+        bind, 
+        bindEffect, 
+        effect, 
+        stopEffect,
+        normalizeNode 
+    }
 
     Object.assign(h, {
         meta,
