@@ -62,12 +62,19 @@
             if (!runner.active) return
             cleanupEffect(runner)
             effectStack.push(runner)
+
             try { return fn() }
+
             finally { effectStack.pop() }
         }
 
         runner.active = true
         runner.deps = []
+        runner.children = []
+
+        const parent = effectStack.at(-1)
+        if (parent) parent.children.push(runner)
+
         runner.stop = () => stopEffect(runner)
         runner()
         return runner
@@ -79,7 +86,9 @@
     }
 
     function stopEffect(runner) {
-        if (!runner.active) return
+        if (!runner || !runner.active) return
+        for (const child of runner.children) { stopEffect(child) }
+        runner.children.length = 0
         cleanupEffect(runner)
         runner.active = false
     }
@@ -94,23 +103,17 @@
     // Рендер array сигналов
     function each(source, render) {
         if (!isSignal(source)) throw new Error("h.each() expects a signal")
-
-        return {
-            __isEach: true,
-            signal: source,
-            render
-        }
+        return { __isEach: true, signal: source, render }
     }
 
     // Очистка событий с ноды
     function cleanupNode(el) {
         if (!el) return
+        for (const child of [...el.childNodes]) { cleanupNode(child) }
         if (el.__cleanup) {
             for (const cleanup of el.__cleanup) { cleanup() }
             delete el.__cleanup
         }
-
-        for (const child of el.childNodes) { cleanupNode(child) }
     }
 
     // Динамический рендер
@@ -121,7 +124,7 @@
             const newNode = normalizeNode(render())
             if (currentNode !== anchor) {
                 cleanupNode(currentNode)
-                currentNode.replaceWith(newNode)
+                if (currentNode.parentNode) currentNode.replaceWith(newNode)
             } else {
                 anchor.replaceWith(newNode)
             }
@@ -131,7 +134,7 @@
         anchor.__cleanup ??= []
         anchor.__cleanup.push(() => {
             stopEffect(runner)
-            cleanupNode(currentNode)
+            if (currentNode !== anchor) cleanupNode(currentNode)
         })
 
         return anchor
@@ -235,13 +238,21 @@
             const node = normalizeNode(result)
 
             if (node === currentNode) return
+            if (currentNode !== placeholder) { 
+                cleanupNode(currentNode)
+                if (currentNode.parentNode) currentNode.replaceWith(node) 
+            } else {
+                placeholder.replaceWith(node)
+            }
 
-            currentNode.replaceWith(node)
             currentNode = node
         })
 
         placeholder.__cleanup ??= []
-        placeholder.__cleanup.push(() => { stopEffect(runner) })
+        placeholder.__cleanup.push(() => {
+            stopEffect(runner)
+            if (currentNode !== placeholder) cleanupNode(currentNode)
+        })
     }
 
     // Рендер списков
@@ -272,7 +283,11 @@
         })
 
         placeholder.__cleanup ??= []
-        placeholder.__cleanup.push(() => { stopEffect(runner) })
+        placeholder.__cleanup.push(() => { 
+            stopEffect(runner) 
+            currentNodes.forEach(unmount)
+            currentNodes = []
+        })
     }
 
     function processChildren(children, el) {
@@ -358,13 +373,13 @@
         description: 'A lightweight reactive DOM library for creating and managing HTML elements with support for signals, dynamic rendering, and event handling.',
     }
 
-    const _internals = { 
-        addProcessor, 
-        bind, 
-        bindEffect, 
-        effect, 
+    const _internals = {
+        addProcessor,
+        bind,
+        bindEffect,
+        effect,
         stopEffect,
-        normalizeNode 
+        normalizeNode
     }
 
     Object.assign(h, {
