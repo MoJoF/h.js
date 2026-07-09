@@ -56,15 +56,20 @@
         return v?.__isSignal === true
     }
 
+    function cleanupChildren(runner) {
+        for (const child of runner.children) { stopEffect(child) }
+        runner.children.length = 0
+    }
+
     // Работа со стеком эффектов
     function effect(fn) {
         const runner = () => {
             if (!runner.active) return
             cleanupEffect(runner)
+            cleanupChildren(runner)
             effectStack.push(runner)
 
             try { return fn() }
-
             finally { effectStack.pop() }
         }
 
@@ -73,7 +78,11 @@
         runner.children = []
 
         const parent = effectStack.at(-1)
-        if (parent) parent.children.push(runner)
+
+        if (parent) {
+            runner.parent = parent
+            parent.children.push(runner)
+        }
 
         runner.stop = () => stopEffect(runner)
         runner()
@@ -85,11 +94,22 @@
         runner.deps.length = 0
     }
 
+    function removeNodes(nodes) {
+        for (const node of nodes) {
+            cleanupNode(node)
+            node.remove()
+        }
+    }
+
     function stopEffect(runner) {
         if (!runner || !runner.active) return
         for (const child of runner.children) { stopEffect(child) }
         runner.children.length = 0
         cleanupEffect(runner)
+        if (runner.parent) {
+            const index = runner.parent.children.indexOf(runner)
+            if (index !== -1) runner.parent.children.splice(index, 1)
+        }
         runner.active = false
     }
 
@@ -109,11 +129,13 @@
     // Очистка событий с ноды
     function cleanupNode(el) {
         if (!el) return
-        for (const child of [...el.childNodes]) { cleanupNode(child) }
+        
         if (el.__cleanup) {
             for (const cleanup of el.__cleanup) { cleanup() }
             delete el.__cleanup
         }
+
+        for (const child of [...el.childNodes]) { cleanupNode(child) }
     }
 
     // Динамический рендер
@@ -125,9 +147,7 @@
             if (currentNode !== anchor) {
                 cleanupNode(currentNode)
                 if (currentNode.parentNode) currentNode.replaceWith(newNode)
-            } else {
-                anchor.replaceWith(newNode)
-            }
+            } else anchor.replaceWith(newNode)
             currentNode = newNode
         })
 
@@ -136,7 +156,6 @@
             stopEffect(runner)
             if (currentNode !== anchor) cleanupNode(currentNode)
         })
-
         return anchor
     }
 
@@ -238,9 +257,9 @@
             const node = normalizeNode(result)
 
             if (node === currentNode) return
-            if (currentNode !== placeholder) { 
+            if (currentNode !== placeholder) {
                 cleanupNode(currentNode)
-                if (currentNode.parentNode) currentNode.replaceWith(node) 
+                if (currentNode.parentNode) currentNode.replaceWith(node)
             } else {
                 placeholder.replaceWith(node)
             }
@@ -263,7 +282,7 @@
         let currentNodes = []
 
         const runner = effect(() => {
-            currentNodes.forEach(unmount)
+            removeNodes(currentNodes)
             currentNodes = []
 
             const parent = placeholder.parentNode
@@ -283,9 +302,9 @@
         })
 
         placeholder.__cleanup ??= []
-        placeholder.__cleanup.push(() => { 
-            stopEffect(runner) 
-            currentNodes.forEach(unmount)
+        placeholder.__cleanup.push(() => {
+            stopEffect(runner)
+            removeNodes(currentNodes)
             currentNodes = []
         })
     }
