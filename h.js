@@ -390,7 +390,7 @@
 
     const meta = {
         name: 'h',
-        version: '1.0.0',
+        version: '1.1.0',
         description: 'A lightweight reactive DOM library for creating and managing HTML elements with support for signals, dynamic rendering, and event handling.',
     }
 

@@ -52,8 +52,4 @@ document.addEventListener("DOMContentLoaded", function () {
     
     // Теперь эта строка успешно свяжет сигнал со всеми параграфами p
     h.attachAll('p', { text: () => `Счетчик в тексте: ${count.value}` });
-
-    const a = h.signal([1,2,3,4])
-
-    h.attach('p', { children: h.each(a, (num) => ['b', { text: num }]) })
 });
