@@ -102,42 +102,44 @@
         }
     }
 
+    // Очистка событий с ноды
+    function cleanupNode(el) {
+        if (!el) return
+        if (el.__cleanup) {
+            for (const cleanup of el.__cleanup) { cleanup() }
+            delete el.__cleanup
+        }
+
+        for (const child of el.childNodes) { cleanupNode(child) }
+    }
+
     // Динамический рендер
     function dynamic(render) {
         const anchor = document.createComment("h-dynamic")
-        let currentNode = null
-
+        let currentNode = anchor
         const runner = effect(() => {
             const newNode = normalizeNode(render())
-
-            if (currentNode) currentNode.replaceWith(newNode)
-
-            else anchor.replaceWith(newNode)
-
+            if (currentNode !== anchor) {
+                cleanupNode(currentNode)
+                currentNode.replaceWith(newNode)
+            } else {
+                anchor.replaceWith(newNode)
+            }
             currentNode = newNode
         })
 
         anchor.__cleanup ??= []
-        anchor.__cleanup.push(() => { stopEffect(runner) })
+        anchor.__cleanup.push(() => {
+            stopEffect(runner)
+            cleanupNode(currentNode)
+        })
 
         return anchor
     }
 
     // Удаление элемента
     function unmount(el) {
-        if (!el) return
-
-        if (el.childNodes) {
-            for (const child of [...el.childNodes]) {
-                if (child.nodeType === Node.ELEMENT_NODE) unmount(child) 
-            }
-        }
-
-
-        if (el.__cleanup) {
-            for (const cleanup of el.__cleanup) { cleanup() }
-            delete el.__cleanup
-        }
+        cleanupNode(el)
         el.remove()
     }
 
