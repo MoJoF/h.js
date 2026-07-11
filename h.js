@@ -69,7 +69,12 @@
         }
     }
 
-    
+    // Чтение сигнала без подписки на него
+    function peek(source) {
+        const active = effectStack.pop()
+        try { return source.value }
+        finally { if (active) effectStack.push(active) }
+    }
 
     // Совмещение нескольких сигналов с ленивым перерасчётом
     function computed(fn) {
@@ -693,6 +698,7 @@
         unmount,
         signal,
         computed,
+        peek,
         each,
         attach,
         attachAll,
