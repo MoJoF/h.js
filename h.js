@@ -354,7 +354,7 @@
      * @param {object} props 
      * @returns 
      */
-    function attach(selector, props) {
+    function attach(selector, props={}) {
         const el = typeof selector === 'string'
             ? document.querySelector(selector)
             : selector
@@ -371,7 +371,7 @@
      * @param {object} props 
      * @returns 
      */
-    function attachAll(selector, props) {
+    function attachAll(selector, props={}) {
         const elements = typeof selector === 'string'
             ? document.querySelectorAll(selector)
             : selector
