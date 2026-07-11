@@ -53,6 +53,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // Теперь эта строка успешно свяжет сигнал со всеми параграфами p
     h.attachAll('p', { text: () => `Счетчик в тексте: ${count.value}` });
 
+    const name = h.signal('Max')
     h.watchSource(count, (newValue, oldValue) => console.log(`Значение count изменено с ${oldValue} на ${newValue}`))
-    h.watchOnce(count, () => console.log(`[Once] Count: ${count.value}`))
+    const all = h.computed(() => count.value + ' ' + name.value)
+    document.body.appendChild(h('h1', { text: all }))
 });

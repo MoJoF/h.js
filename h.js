@@ -69,6 +69,20 @@
         }
     }
 
+    
+
+    // Совмещение нескольких сигналов с ленивым перерасчётом
+    function computed(fn) {
+        const result = signal(undefined)
+        effect(() => {
+            result.value = fn()
+        })
+        return {
+            __isSignal: true,
+            get value() { return result.value }
+        }
+    }
+
     // Проверка, является ли переменная сигналом
     function isSignal(v) {
         return v?.__isSignal === true
@@ -471,7 +485,6 @@
     }
 
     // Динамический рендеринг
-    // Динамический рендеринг
     function renderDynamicChild(child, el) {
         const anchor = document.createComment("effect")
         el.appendChild(anchor) // anchor уже в DOM — с этим момента parentNode всегда есть
@@ -679,6 +692,7 @@
         meta,
         unmount,
         signal,
+        computed,
         each,
         attach,
         attachAll,
