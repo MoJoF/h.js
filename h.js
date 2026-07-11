@@ -412,28 +412,34 @@
 
     /**
      * Создаёт реактивный список для использования внутри props.children.
-     * При изменении source полностью перестраивает DOM-узлы списка.
+     * При изменении source сверяет элементы по ключу (keyFn) и переиспользует
+     * существующие DOM-ноды вместо полного пересоздания списка.
      *
      * @param {{value: Array}} source - сигнал, хранящий массив
-     * @param {(item: *) => Node|[string, object]} render - функция рендера одного элемента
-     * @returns {{__isEach: true, signal, render}} служебный дескриптор для processChildren
+     * @param {(item: *, index: number) => Node|[string, object]} render - функция рендера одного элемента
+     * @param {(item: *, index: number) => *} [keyFn] - извлечение уникального ключа элемента;
+     *   по умолчанию используется сам item (подходит для примитивов — строк, чисел),
+     *   для массивов объектов передавайте явно, например item => item.id
+     * @returns {{__isEach: true, signal, render, keyFn}} служебный дескриптор для processChildren
      *
      * @example
-     * const todos = h.signal(['Купить хлеб', 'Помыть посуду'])
+     * const todos = h.signal([{ id: 1, text: 'Купить хлеб' }, { id: 2, text: 'Помыть посуду' }])
      *
      * const list = h('ul', {
-     *   children: h.each(todos, (item) => ['li', { text: item }])
+     *   children: h.each(todos, (item) => ['li', { text: item.text }], item => item.id)
      * })
      *
-     * todos.value = [...todos.value, 'Новая задача'] // список перерисуется
+     * // при перестановке/добавлении элементов существующие <li> переиспользуются,
+     * // а не пересоздаются — сохраняются фокус, локальный state, скролл
      *
      * @example
-     * // render может вернуть готовый DOM-узел напрямую вместо [tag, props]
-     * h.each(todos, (item) => h('li', { text: item, className: 'todo-item' }))
+     * // Для списка примитивов keyFn можно не передавать — сам item служит ключом
+     * const tags = h.signal(['js', 'css', 'html'])
+     * h.each(tags, (tag) => ['span', { text: tag }])
      */
-    function each(source, render) {
+    function each(source, render, keyFn) {
         if (!isSignal(source)) throw new Error("h.each() expects a signal")
-        return { __isEach: true, signal: source, render }
+        return { __isEach: true, signal: source, render, keyFn: keyFn ?? ((item) => item) }
     }
 
     // Очистка событий с ноды
@@ -612,38 +618,70 @@
         })
     }
 
-    // Рендер списков
+    // Рендер списков с переиспользованием нод по ключу
     function renderListChild(child, el) {
         const placeholder = document.createComment("h-each")
         el.appendChild(placeholder)
 
-        let currentNodes = []
+        let keyedNodes = new Map()
 
         const runner = effect(() => {
-            removeNodes(currentNodes)
-            currentNodes = []
-
             const parent = placeholder.parentNode
             if (!parent) return
 
             const items = child.signal.value ?? []
+            const nextKeyedNodes = new Map()
+            const usedKeys = new Set()
 
-            for (const item of items) {
-                const result = child.render(item)
+            const orderedNodes = items.map((item, index) => {
+                const key = child.keyFn(item, index)
+
+                if (usedKeys.has(key)) {
+                    console.error(`[h.each] дублирующийся ключ "${key}" — элементы с одинаковым ключом будут перезаписывать друг друга`)
+                }
+                usedKeys.add(key)
+
+                const existing = keyedNodes.get(key)
+                if (existing) {
+                    keyedNodes.delete(key) 
+                    nextKeyedNodes.set(key, existing)
+                    return existing.node
+                }
+
+                const result = child.render(item, index)
                 const node = result instanceof Node
                     ? result
                     : h(result[0], result[1])
 
-                currentNodes.push(node)
-                parent.insertBefore(node, placeholder)
+                nextKeyedNodes.set(key, { node, item })
+                return node
+            })
+
+            for (const { node } of keyedNodes.values()) {
+                cleanupNode(node)
+                node.remove()
             }
+
+            let cursor = placeholder
+            for (let i = orderedNodes.length - 1; i >= 0; i--) {
+                const node = orderedNodes[i]
+                if (node.nextSibling !== cursor) {
+                    parent.insertBefore(node, cursor)
+                }
+                cursor = node
+            }
+
+            keyedNodes = nextKeyedNodes
         })
 
         placeholder.__cleanup ??= []
         placeholder.__cleanup.push(() => {
             stopEffect(runner)
-            removeNodes(currentNodes)
-            currentNodes = []
+            for (const { node } of keyedNodes.values()) {
+                cleanupNode(node)
+                node.remove()
+            }
+            keyedNodes.clear()
         })
     }
 
