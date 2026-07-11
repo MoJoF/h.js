@@ -77,4 +77,29 @@ document.addEventListener("DOMContentLoaded", function () {
         { id: 2, text: 'b' },
         { id: 1, text: 'a' },
     ]
+
+
+
+
+
+    const f = h.resource(() => fetch('https://jsonplaceholder.typicode.com/todos/').then(resp => resp.json()))
+
+    const TodosList = () => {
+        const state = f.value
+
+        if (state.loading) return h('p', { text: 'Загрузка' })
+        if (state.error) return h('p', { text: 'Ошибка загрузки' })
+        
+        /**
+         * title
+         * completed
+         */
+
+        return h('ul', { children: state.data.map(todo => ['li', { children: [
+            ['input', { type: 'checkbox', checked: todo.completed }],
+            ['label', { text: todo.title }]
+        ] }]) })
+    }
+
+    document.body.appendChild(h(TodosList))
 });
