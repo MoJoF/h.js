@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         children: [
             ["h1", { text: "h.js Demo" }],
-
+            
             ["button", {
                 text: () => `Нажато ${count.value} раз`,
                 on: { click() { count.value++; } }
@@ -27,15 +27,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
             () => count.value >= 5
                 ? ["div", {
-                    text: "🎉 Отлично! Нажми сюда для анимации",
+                    text: "🎉 Отлично! Нажми сюда для анимации", 
                     css: { cursor: "pointer", fontWeight: "bold", color: "green" },
                     on: {
                         click: () => {
                             // Находит созданные выше теги 'p' и запускает плагин
                             h.attachAll('p', {
                                 animate: {
-                                    duration: 500,
-                                    transform: 'translateX(100px)',
+                                    duration: 500, 
+                                    transform: 'translateX(100px)', 
                                     onUpdate: ({ progress }) => h.attach('#status', { text: () => (progress * 100).toFixed(2) + '%' }),
                                     onStart: () => h.attach('#status', { text: 'Start' }),
                                     onComplete: () => h.attach('#status', { text: 'Complete' })
@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.body.appendChild(app);
-
+    
     // Теперь эта строка успешно свяжет сигнал со всеми параграфами p
     h.attachAll('p', { text: () => `Счетчик в тексте: ${count.value}` });
 
@@ -57,18 +57,4 @@ document.addEventListener("DOMContentLoaded", function () {
     h.watchSource(count, (newValue, oldValue) => console.log(`Значение count изменено с ${oldValue} на ${newValue}`))
     const all = h.computed(() => count.value + ' ' + name.value)
     document.body.appendChild(h('h1', { text: all }))
-
-    const a = h.signal(1)
-    const b = h.signal(2)
-
-    h.watch(() => {
-        console.log('sum =', a.value + b.value)
-    })
-    // сразу выведет: "sum = 3" (первый синхронный запуск)
-    
-
-    h.batch(() => {
-        a.value = 10
-        b.value = 20
-    })
 });

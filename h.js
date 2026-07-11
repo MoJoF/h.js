@@ -74,7 +74,35 @@
         }
     }
 
-    // batching 
+    /**
+     * Группирует несколько синхронных изменений сигналов в один цикл обновления.
+     * Все эффекты, зависящие от изменённых сигналов, перезапустятся один раз
+     * после завершения fn(), а не после каждой отдельной записи .value.
+     * Поддерживает вложенность — флаш происходит только когда закрывается
+     * самый внешний batch().
+     *
+     * @param {() => void} fn - функция, внутри которой выполняются изменения сигналов
+     *
+     * @example
+     * const a = h.signal(1)
+     * const b = h.signal(2)
+     * h.watch(() => console.log('sum =', a.value + b.value))
+     * // сразу: "sum = 3"
+     *
+     * h.batch(() => {
+     *   a.value = 10
+     *   b.value = 20
+     * })
+     * // один вывод: "sum = 30" — вместо двух промежуточных
+     *
+     * @example
+     * // Вложенные batch() флашатся только после закрытия самого внешнего
+     * h.batch(() => {
+     *   a.value = 100
+     *   h.batch(() => { b.value = 200 })
+     *   // эффект ещё не сработал — ждём завершения внешнего batch
+     * })
+     */
     function batch(fn) {
         batchDepth++
         try { fn() }
@@ -88,22 +116,72 @@
         }
     }
 
-    // Чтение сигнала без подписки на него
+    /**
+     * Читает значение сигнала, не создавая подписку на него — даже если
+     * вызывается изнутри effect()/watch(). Полностью снимает стек активных
+     * эффектов на время чтения (а не только верхний уровень), поэтому
+     * безопасен и при вложенных эффектах.
+     *
+     * @param {{value: *}} source - сигнал, значение которого нужно прочитать
+     * @returns {*} текущее значение source.value
+     *
+     * @example
+     * const a = h.signal(1)
+     * const b = h.signal(2)
+     * h.watch(() => {
+     *   console.log(a.value)        // подписка на a создаётся
+     *   console.log(h.peek(b))      // b прочитан, подписки НЕТ
+     * })
+     * b.value = 100 // эффект не перезапустится — на b подписки не было
+     *
+     * @example
+     * // Безопасен и при вложенных эффектах — не подписывает случайно родителя
+     * h.watch(() => {
+     *   h.watch(() => {
+     *     h.peek(b) // ни внутренний, ни внешний эффект не подпишутся на b
+     *   })
+     * })
+     */
     function peek(source) {
-        const active = effectStack.pop()
+        const active = effectStack.splice(0)
         try { return source.value }
-        finally { if (active) effectStack.push(active) }
+        finally { if (active) effectStack.push(...active) }
     }
 
-    // Совмещение нескольких сигналов с ленивым перерасчётом
+    /**
+     * Создаёт производный сигнал, значение которого автоматически пересчитывается
+     * при изменении сигналов, прочитанных внутри fn (авто-трекинг, как в watch()).
+     * Пересчёт происходит eagerly — сразу при изменении зависимости,
+     * а не лениво при следующем чтении .value.
+     *
+     * @param {() => *} fn - функция вычисления производного значения
+     * @returns {{value: *, stop: function}} сигнал только для чтения;
+     *   stop() останавливает пересчёт и отписывается от зависимостей
+     *
+     * @example
+     * const firstName = h.signal('Иван')
+     * const lastName = h.signal('Иванов')
+     * const fullName = h.computed(() => `${firstName.value} ${lastName.value}`)
+     *
+     * console.log(fullName.value) // "Иван Иванов"
+     * firstName.value = 'Пётр'
+     * console.log(fullName.value) // "Пётр Иванов" — пересчитан автоматически
+     *
+     * @example
+     * // Если computed создан не внутри другого эффекта — он не остановится
+     * // сам по себе, нужно звать stop() вручную, иначе будет утечка подписки
+     * const doubled = h.computed(() => count.value * 2)
+     * doubled.stop() // прекращает пересчёт и отписывается от count
+     */
     function computed(fn) {
         const result = signal(undefined)
-        effect(() => {
+        const runner = effect(() => {
             result.value = fn()
         })
         return {
             __isSignal: true,
-            get value() { return result.value }
+            get value() { return result.value },
+            stop: runner.stop
         }
     }
 
