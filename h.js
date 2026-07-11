@@ -77,7 +77,7 @@
             cleanupChildren(runner)
             effectStack.push(runner)
 
-            try { 
+            try {
                 const result = fn()
                 if (typeof result === 'function') runner.cleanupFn = result
             }
@@ -147,6 +147,30 @@
         })
 
         return runner.stop
+    }
+
+    // Одноразовое отслеживание сигналов
+    function watchOnce(source, callback, { immediate = false } = {}) {
+        let runner = null
+        let pendingStop = false
+        let oldValue
+        let isFirst = true
+
+        runner = effect(() => {
+            const newValue = source.value
+
+            if (immediate || !isFirst) {
+                callback(oldValue, newValue)
+                if (runner) stopEffect(runner)
+                else pendingStop = true
+            }
+
+            oldValue = newValue
+            isFirst = false
+        })
+
+        if (pendingStop) stopEffect(runner)
+        return runner
     }
 
     // Прикрепление подписки
@@ -459,6 +483,7 @@
         attachAll,
         watch: effect,
         watchSource,
+        watchOnce,
         _internals,
     })
 
