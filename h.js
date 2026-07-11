@@ -29,8 +29,26 @@
     const effectStack = []
 
     /**
-     * Создание сигнала (реактивная переменная)
-    */
+     * Создаёт сигнал — реактивную ячейку значения.
+     * Чтение .value внутри effect/watch/h() автоматически регистрирует подписку.
+     * Запись .value уведомляет всех подписчиков (если значение реально изменилось).
+     *
+     * @param {*} v - начальное значение
+     * @returns {{ value: * }} объект с геттером/сеттером value
+     *
+     * @example
+     * const count = h.signal(0)
+     * console.log(count.value) // 0
+     * count.value = 5
+     * console.log(count.value) // 5
+     *
+     * @example
+     * // Повторная запись того же значения не триггерит подписчиков (Object.is)
+     * const flag = h.signal(true)
+     * h.watch(() => console.log('изменился:', flag.value))
+     * flag.value = true  // ничего не выведет — значение не поменялось
+     * flag.value = false // "изменился: false"
+     */
     function signal(v) {
         const listeners = new Set()
         return {
@@ -110,6 +128,53 @@
         return runner
     }
 
+    /**
+     * Запускает функцию сразу и повторно — при изменении любых сигналов,
+     * прочитанных внутри неё (авто-трекинг через .value).
+     * Не привязан к DOM — можно использовать как чистый JS-примитив для side-эффектов.
+     *
+     * @param {() => (void|function)} fn - функция эффекта; может вернуть cleanup-функцию,
+     *   которая вызывается перед каждым перезапуском и при stop()
+     * @param {object} [options]
+     * @param {(err: Error) => void} [options.onError] - обработчик исключений внутри fn;
+     *   по умолчанию просто console.error, выполнение приложения не прерывается
+     * @returns {Runner} объект с методами:
+     *   - stop() — необратимо остановить, отписаться от всех сигналов, вызвать cleanup
+     *   - pause() — временно приостановить реакцию (подписки сохраняются)
+     *   - resume() — возобновить после pause(), подхватив пропущенные изменения
+     *
+     * @example
+     * const count = h.signal(0)
+     * const stop = h.watch(() => {
+     *   console.log('count =', count.value)
+     * })
+     * count.value = 5 // "count = 5"
+     * stop()          // больше не реагирует
+     *
+     * @example
+     * // С cleanup-функцией — аналог return () => {...} из useEffect
+     * h.watch(() => {
+     *   const id = setInterval(() => console.log('tick'), 1000)
+     *   return () => clearInterval(id) // вызовется перед следующим прогоном / при stop()
+     * })
+     *
+     * @example
+     * // С обработкой ошибок
+     * h.watch(() => {
+     *   JSON.parse(invalidJson.value) // может бросить исключение
+     * }, {
+     *   onError: (err) => console.warn('watch упал:', err.message)
+     * })
+     *
+     * @example
+     * // pause/resume
+     * const runner = h.watch(() => console.log(count.value))
+     * runner.pause()
+     * count.value = 100  // тишина, эффект приостановлен
+     * runner.resume()    // сразу перезапустится с текущим значением
+     */
+    const watch = effect
+
     function cleanupEffect(runner) {
         runner.deps.forEach(dep => dep.delete(runner))
         runner.deps.length = 0
@@ -135,7 +200,32 @@
         runner.active = false
     }
 
-    // Отслеживание изменений сигналов
+    /**
+     * Следит за одним конкретным сигналом и передаёт в callback новое и старое значение.
+     * В отличие от h.watch(), не использует авто-трекинг — источник указывается явно,
+     * что защищает от случайных подписок на лишние сигналы внутри callback.
+     *
+     * @param {{value: *}} source - сигнал для отслеживания
+     * @param {(newValue: *, oldValue: *) => void} callback - вызывается при изменении source
+     * @param {object} [options]
+     * @param {boolean} [options.immediate=false] - вызвать callback сразу при подписке
+     *   (с oldValue === undefined), не дожидаясь первого изменения
+     * @returns {() => void} функция для остановки отслеживания
+     *
+     * @example
+     * const count = h.signal(0)
+     * const stop = h.watchSource(count, (next, prev) => {
+     *   console.log(`было ${prev}, стало ${next}`)
+     * })
+     * count.value = 5 // "было 0, стало 5"
+     * stop()
+     *
+     * @example
+     * // immediate: true — полезно для синхронизации текущего состояния сразу при подписке
+     * h.watchSource(count, (next) => {
+     *   localStorage.setItem('count', next)
+     * }, { immediate: true }) // сразу запишет текущее значение, а не только будущие
+     */
     function watchSource(source, callback, { immediate = false } = {}) {
         let oldValue
         let isFirst = true
@@ -149,7 +239,31 @@
         return runner.stop
     }
 
-    // Одноразовое отслеживание сигналов
+    /**
+     * То же самое, что h.watchSource(), но callback вызывается не более одного раза —
+     * после первого срабатывания отслеживание автоматически останавливается.
+     *
+     * @param {{value: *}} source - сигнал для отслеживания
+     * @param {(newValue: *, oldValue: *) => void} callback - вызывается один раз
+     * @param {object} [options]
+     * @param {boolean} [options.immediate=false] - вызвать callback сразу при подписке
+     *   и сразу же остановиться, даже не дожидаясь изменения source
+     * @returns {Runner} объект эффекта (обычно не нужен — отписка происходит сама)
+     *
+     * @example
+     * const ready = h.signal(false)
+     * h.watchOnce(ready, (next, prev) => {
+     *   console.log(`ready: ${prev} → ${next}`)
+     * })
+     * ready.value = true  // "ready: false → true" — сработает один раз
+     * ready.value = false // тишина, отслеживание уже остановлено
+     *
+     * @example
+     * // immediate: true — фактически "прочитать значение один раз прямо сейчас"
+     * h.watchOnce(count, (next) => {
+     *   console.log('стартовое значение:', next)
+     * }, { immediate: true })
+     */
     function watchOnce(source, callback, { immediate = false } = {}) {
         let runner = null
         let pendingStop = false
@@ -180,7 +294,27 @@
         el.__cleanup.push(() => { stopEffect(runner) })
     }
 
-    // Рендер array сигналов
+    /**
+     * Создаёт реактивный список для использования внутри props.children.
+     * При изменении source полностью перестраивает DOM-узлы списка.
+     *
+     * @param {{value: Array}} source - сигнал, хранящий массив
+     * @param {(item: *) => Node|[string, object]} render - функция рендера одного элемента
+     * @returns {{__isEach: true, signal, render}} служебный дескриптор для processChildren
+     *
+     * @example
+     * const todos = h.signal(['Купить хлеб', 'Помыть посуду'])
+     *
+     * const list = h('ul', {
+     *   children: h.each(todos, (item) => ['li', { text: item }])
+     * })
+     *
+     * todos.value = [...todos.value, 'Новая задача'] // список перерисуется
+     *
+     * @example
+     * // render может вернуть готовый DOM-узел напрямую вместо [tag, props]
+     * h.each(todos, (item) => h('li', { text: item, className: 'todo-item' }))
+     */
     function each(source, render) {
         if (!isSignal(source)) throw new Error("h.each() expects a signal")
         return { __isEach: true, signal: source, render }
@@ -234,7 +368,23 @@
         return fragment
     }
 
-    // Удаление элемента
+    /**
+     * Полностью удаляет элемент из DOM, предварительно останавливая все связанные
+     * с ним и его потомками эффекты (event listeners, watch, dynamic-блоки и т.д.).
+     * Обязательно использовать вместо el.remove() для узлов, созданных через h(),
+     * иначе эффекты внутри продолжат работать в фоне (утечка).
+     *
+     * @param {Node} el - узел для удаления
+     *
+     * @example
+     * const count = h.signal(0)
+     * const panel = h('div', { text: () => `count: ${count.value}` })
+     * document.body.appendChild(panel)
+     *
+     * // ...позже
+     * h.unmount(panel) // корректно остановит внутренний watch и уберёт узел из DOM
+     * // panel.remove() тут был бы ошибкой — эффект внутри остался бы жив
+     */
     function unmount(el) {
         cleanupNode(el)
         el.remove()
@@ -418,12 +568,20 @@
     }
 
     /**
-     * Функция для привязки обработчиков событий и свойств к существующему элементу в DOM.
-     * 
-     * Эта функция позволяет выбрать элемент в DOM с помощью CSS-селектора и применить к нему набор свойств и обработчиков событий.Ц
-     * @param {string} selector 
-     * @param {object} props 
-     * @returns 
+     * Применяет свойства и обработчики событий к уже существующему элементу в DOM.
+     * В отличие от h(), не создаёт новый узел — работает с готовой разметкой.
+     *
+     * @param {string|Element} selector - CSS-селектор или сам DOM-элемент
+     * @param {object} [props] - те же свойства, что и в h() (text, css, on, attrs, ...)
+     * @returns {Element|null} найденный элемент, или null, если не найден
+     *
+     * @example
+     * // Разметка уже есть в HTML: <div id="app"></div>
+     * const count = h.signal(0)
+     * h.attach('#app', {
+     *   text: () => `Значение: ${count.value}`,
+     *   on: { click: () => count.value++ }
+     * })
      */
     function attach(selector, props = {}) {
         const el = typeof selector === 'string'
@@ -435,12 +593,18 @@
     }
 
     /**
-     * Функция для привязки обработчиков событий и свойств ко всем элементам, соответствующим CSS-селектору.
-     * 
-     * Эта функция позволяет выбрать все элементы в DOM, соответствующие CSS-селектору, и применить к ним набор свойств и обработчиков событий.
-     * @param {string} selector 
-     * @param {object} props 
-     * @returns 
+     * То же самое, что h.attach(), но применяет props ко всем элементам,
+     * соответствующим селектору.
+     *
+     * @param {string|NodeList} selector - CSS-селектор или готовый NodeList
+     * @param {object} [props] - свойства, применяемые к каждому найденному элементу
+     * @returns {NodeList} список обработанных элементов
+     *
+     * @example
+     * // <button class="tab">1</button><button class="tab">2</button>...
+     * h.attachAll('.tab', {
+     *   on: { click: (e) => console.log('клик по табу:', e.target.textContent) }
+     * })
      */
     function attachAll(selector, props = {}) {
         const elements = typeof selector === 'string'
@@ -450,6 +614,37 @@
         return elements
     }
 
+    /**
+     * Создаёт DOM-элемент с заданными свойствами, либо — если передана функция —
+     * реактивный блок, который сам перерисовывается при изменении сигналов внутри неё.
+     *
+     * @param {string|function} elementName - имя тега ('div', 'span', ...) или render-функция
+     * @param {object} [props] - свойства элемента (см. processors: css, text, id, className, on, attrs, dataset, children)
+     * @returns {Node} DOM-узел (или DocumentFragment, если elementName — функция)
+     *
+     * @example
+     * // Статический элемент
+     * const btn = h('button', {
+     *   text: 'Нажми меня',
+     *   className: 'btn primary',
+     *   on: { click: () => alert('клик!') }
+     * })
+     * document.body.appendChild(btn)
+     *
+     * @example
+     * // Реактивный текст через сигнал
+     * const count = h.signal(0)
+     * const label = h('span', { text: () => `Счётчик: ${count.value}` })
+     *
+     * @example
+     * // Компонент как функция — пересобирается целиком при изменении сигнала
+     * const show = h.signal(true)
+     * const Toggle = () => show.value
+     *   ? h('div', { text: 'Видно' })
+     *   : h('div', { text: 'Скрыто' })
+     *
+     * document.body.appendChild(h(Toggle))
+     */
     function h(elementName, props = {}) {
         if (typeof elementName === 'function') return dynamic(elementName)
         if (typeof elementName !== 'string') throw new Error('h() expects tag name or render function')
@@ -465,6 +660,12 @@
         description: 'A lightweight reactive DOM library for creating and managing HTML elements with support for signals, dynamic rendering, and event handling.',
     }
 
+    /**
+     * @private
+     * h._internals — низкоуровневые примитивы для расширения библиотеки
+     * (например, через h._internals.addProcessor() можно добавить свой обработчик props).
+     * API нестабилен, обратная совместимость не гарантируется.
+     */
     const _internals = {
         addProcessor,
         bind,
@@ -481,7 +682,7 @@
         each,
         attach,
         attachAll,
-        watch: effect,
+        watch,
         watchSource,
         watchOnce,
         _internals,
