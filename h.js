@@ -61,21 +61,33 @@
         runner.children.length = 0
     }
 
+    function runEffectCleanup(runner) {
+        if (runner.cleanupFn) {
+            runner.cleanupFn()
+            runner.cleanupFn = null
+        }
+    }
+
     // Работа со стеком эффектов
     function effect(fn) {
         const runner = () => {
             if (!runner.active) return
+            runEffectCleanup(runner)
             cleanupEffect(runner)
             cleanupChildren(runner)
             effectStack.push(runner)
 
-            try { return fn() }
+            try { 
+                const result = fn()
+                if (typeof result === 'function') runner.cleanupFn = result
+            }
             finally { effectStack.pop() }
         }
 
         runner.active = true
         runner.deps = []
         runner.children = []
+        runner.cleanupFn = null
 
         const parent = effectStack.at(-1)
 
@@ -105,6 +117,7 @@
         if (!runner || !runner.active) return
         for (const child of runner.children) { stopEffect(child) }
         runner.children.length = 0
+        runEffectCleanup(runner)
         cleanupEffect(runner)
         if (runner.parent) {
             const index = runner.parent.children.indexOf(runner)
@@ -421,6 +434,7 @@
         each,
         attach,
         attachAll,
+        watch: effect,
         _internals,
     })
 
