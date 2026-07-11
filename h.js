@@ -69,7 +69,7 @@
     }
 
     // Работа со стеком эффектов
-    function effect(fn) {
+    function effect(fn, { onError } = {}) {
         const runner = () => {
             if (!runner.active) return
             runEffectCleanup(runner)
@@ -80,6 +80,10 @@
             try { 
                 const result = fn()
                 if (typeof result === 'function') runner.cleanupFn = result
+            }
+            catch (err) {
+                if (onError) onError(err)
+                else console.error('[Effect] error: ' + err)
             }
             finally { effectStack.pop() }
         }
@@ -97,6 +101,11 @@
         }
 
         runner.stop = () => stopEffect(runner)
+        runner.pause = () => { runner.active = false }
+        runner.resume = () => {
+            runner.active = true
+            runner()
+        }
         runner()
         return runner
     }
@@ -124,6 +133,20 @@
             if (index !== -1) runner.parent.children.splice(index, 1)
         }
         runner.active = false
+    }
+
+    // Отслеживание изменений сигналов
+    function watchSource(source, callback, { immediate = false } = {}) {
+        let oldValue
+        let isFirst = true
+        const runner = effect(() => {
+            const newValue = source.value
+            if (immediate || !isFirst) callback(oldValue, newValue)
+            oldValue = newValue
+            isFirst = false
+        })
+
+        return runner.stop
     }
 
     // Прикрепление подписки
@@ -435,6 +458,7 @@
         attach,
         attachAll,
         watch: effect,
+        watchSource,
         _internals,
     })
 
