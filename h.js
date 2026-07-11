@@ -141,7 +141,7 @@
         let isFirst = true
         const runner = effect(() => {
             const newValue = source.value
-            if (immediate || !isFirst) callback(oldValue, newValue)
+            if (immediate || !isFirst) callback(newValue, oldValue)
             oldValue = newValue
             isFirst = false
         })
@@ -160,7 +160,7 @@
             const newValue = source.value
 
             if (immediate || !isFirst) {
-                callback(oldValue, newValue)
+                callback(newValue, oldValue)
                 if (runner) stopEffect(runner)
                 else pendingStop = true
             }
