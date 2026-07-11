@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const count = h.signal(0);
+    const count = h.persisted('counter', 0);
 
     document.body.appendChild(
         h("span", { id: 'status' })
