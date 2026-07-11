@@ -53,6 +53,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // Теперь эта строка успешно свяжет сигнал со всеми параграфами p
     h.attachAll('p', { text: () => `Счетчик в тексте: ${count.value}` });
 
-    h.watchSource(count, (oldValue, newValue) => console.log(`Значение count изменено с ${oldValue} на ${newValue}`))
+    h.watchSource(count, (newValue, oldValue) => console.log(`Значение count изменено с ${oldValue} на ${newValue}`))
     h.watchOnce(count, () => console.log(`[Once] Count: ${count.value}`))
 });
