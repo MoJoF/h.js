@@ -142,23 +142,36 @@
     function dynamic(render) {
         const anchor = document.createComment("h-dynamic")
         let currentNode = null
+        let initial = true
+
         const runner = effect(() => {
             const newNode = normalizeNode(render())
-            if (currentNode) {
-                cleanupNode(currentNode)
-                currentNode.replaceWith(newNode)
+
+            if (initial) {
+                // anchor ещё не вставлен вызывающим кодом — просто запоминаем узел
+                currentNode = newNode
+                initial = false
+                return
             }
-            else { anchor.replaceWith(newNode) }
+
+            cleanupNode(currentNode)
+            currentNode.remove()
+            anchor.parentNode?.insertBefore(newNode, anchor)
             currentNode = newNode
         })
 
         anchor.__cleanup ??= []
         anchor.__cleanup.push(() => {
             stopEffect(runner)
-            if (currentNode)
-                cleanupNode(currentNode)
+            if (currentNode) cleanupNode(currentNode)
         })
-        return anchor
+
+        // Первый рендер уже случился синхронно внутри effect() выше —
+        // упаковываем узел + якорь во фрагмент, чтобы оба ушли в DOM одним appendChild
+        const fragment = document.createDocumentFragment()
+        fragment.appendChild(currentNode)
+        fragment.appendChild(anchor)
+        return fragment
     }
 
     // Удаление элемента
@@ -248,31 +261,29 @@
     }
 
     // Динамический рендеринг
+    // Динамический рендеринг
     function renderDynamicChild(child, el) {
-        const placeholder = document.createComment("effect")
-        el.appendChild(placeholder)
+        const anchor = document.createComment("effect")
+        el.appendChild(anchor) // anchor уже в DOM — с этим момента parentNode всегда есть
 
-        let currentNode = placeholder
+        let currentNode = null
 
         const runner = effect(() => {
             const result = child()
             const node = normalizeNode(result)
 
-            if (node === currentNode) return
-            if (currentNode !== placeholder) {
+            if (currentNode) {
                 cleanupNode(currentNode)
-                if (currentNode.parentNode) currentNode.replaceWith(node)
-            } else {
-                placeholder.replaceWith(node)
+                currentNode.remove()
             }
-
+            anchor.parentNode.insertBefore(node, anchor)
             currentNode = node
         })
 
-        placeholder.__cleanup ??= []
-        placeholder.__cleanup.push(() => {
+        anchor.__cleanup ??= []
+        anchor.__cleanup.push(() => {
             stopEffect(runner)
-            if (currentNode !== placeholder) cleanupNode(currentNode)
+            if (currentNode) cleanupNode(currentNode)
         })
     }
 
@@ -354,7 +365,7 @@
      * @param {object} props 
      * @returns 
      */
-    function attach(selector, props={}) {
+    function attach(selector, props = {}) {
         const el = typeof selector === 'string'
             ? document.querySelector(selector)
             : selector
@@ -371,7 +382,7 @@
      * @param {object} props 
      * @returns 
      */
-    function attachAll(selector, props={}) {
+    function attachAll(selector, props = {}) {
         const elements = typeof selector === 'string'
             ? document.querySelectorAll(selector)
             : selector
