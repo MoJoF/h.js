@@ -27,6 +27,8 @@
 
 (function (global) {
     const effectStack = []
+    let batchDepth = 0
+    let pendingRunners = new Set()
 
     /**
      * Создаёт сигнал — реактивную ячейку значения.
@@ -64,7 +66,24 @@
             set value(newValue) {
                 if (Object.is(v, newValue)) return
                 v = newValue
-                for (const fn of [...listeners]) { fn() }
+                for (const fn of [...listeners]) {
+                    if (batchDepth > 0) pendingRunners.add(fn)
+                    else fn()
+                }
+            }
+        }
+    }
+
+    // batching 
+    function batch(fn) {
+        batchDepth++
+        try { fn() }
+        finally {
+            batchDepth--
+            if (batchDepth === 0) {
+                const runners = [...pendingRunners]
+                pendingRunners.clear()
+                runners.forEach(r => r())
             }
         }
     }
@@ -699,6 +718,7 @@
         signal,
         computed,
         peek,
+        batch,
         each,
         attach,
         attachAll,
