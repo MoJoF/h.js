@@ -1,7 +1,9 @@
 (function (h) {
     /**
-     * const nameLocal = h.persisted('name', 'Max')
+     * Create sync: const nameLocal = h.persisted('name', 'Max')
+     * 
      * document.body.appendChild(h('input', { on: { input: (e) => nameLocal.value = e.target.value } }))
+     * 
      * Remove sync: nameLocal.destroy()
      */
     if (!h?.meta || h.meta.name !== 'h') {
