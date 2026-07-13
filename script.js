@@ -70,6 +70,12 @@ document.addEventListener("DOMContentLoaded", function () {
     })
     document.body.appendChild(list)
 
+    
+    
+    const nameLocal = h.persisted('name', 'Max', { storage: sessionStorage })
+    
+    document.body.appendChild(h('input', { on: { input: (e) => nameLocal.value === 'delete' ? nameLocal.destroy() : nameLocal.value = e.target.value } }))
+    
     // Переставляем местами первый и последний — без keyFn все 3 <li> пересоздались бы.
     // С keyFn — все три ноды переиспользуются, просто physically переставляются местами в DOM.
     items.value = [
@@ -77,11 +83,6 @@ document.addEventListener("DOMContentLoaded", function () {
         { id: 2, text: 'b' },
         { id: 1, text: 'a' },
     ]
-
-
-    const nameLocal = h.persisted('name', 'Max', { storage: sessionStorage })
-
-    document.body.appendChild(h('input', { on: { input: (e) => nameLocal.value === 'delete' ? nameLocal.destroy() : nameLocal.value = e.target.value } }))
 
     const f = h.resource(() => fetch('https://jsonplaceholder.typicode.com/todos/').then(resp => resp.json()))
 
