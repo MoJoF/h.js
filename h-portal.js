@@ -4,8 +4,6 @@
         return
     }
 
-    h._internals.use('h-portal')
-    
     h.portal = function (target, node) {
         if (typeof target === 'string') {
             target = document.querySelector(target);

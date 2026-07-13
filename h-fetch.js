@@ -19,8 +19,6 @@
         return
     }
 
-    h._internals.use('h-fetch')
-    
     h.resource = function (fetcher) {
         const state = h.signal({ loading: true, data: null, error: null })
         let requestId = 0
