@@ -4,6 +4,8 @@
         return
     }
 
+    h._internals.use('h-animate')
+
     /**
      * Анимирует элемент с помощью Web Animations API
      * @param {HTMLElement} el 

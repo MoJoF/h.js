@@ -27,6 +27,7 @@
 
 (function (global) {
     const effectStack = []
+    let installedPlugins = []
     let batchDepth = 0
     let pendingRunners = new Set()
 
@@ -72,6 +73,16 @@
                 }
             }
         }
+    }
+
+    /** 
+    * Служебная функция
+    * Добавление плагина в список установленных
+    */
+    function use(pluginName) {
+        if (typeof pluginName !== 'string') return
+        if (installedPlugins.includes(pluginName)) return
+        installedPlugins = [...installedPlugins, pluginName]
     }
 
     /**
@@ -825,7 +836,8 @@
         bindEffect,
         effect,
         stopEffect,
-        normalizeNode
+        normalizeNode,
+        use
     }
 
     Object.assign(h, {

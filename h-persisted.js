@@ -11,6 +11,8 @@
         return
     }
 
+    h._internals.use('h-persisted')
+
     h.persisted = function (key, defaultValue, { storage = localStorage } = {}) {
         let stored = defaultValue
         const raw = storage.getItem(key)
