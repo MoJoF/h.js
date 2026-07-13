@@ -837,7 +837,8 @@
         effect,
         stopEffect,
         normalizeNode,
-        use
+        use,
+        plugins: installedPlugins
     }
 
     Object.assign(h, {
