@@ -4,6 +4,7 @@
         return
     }
 
+    let canvas
     let ctx
     const scene = h.signal([])
 
@@ -19,7 +20,7 @@
     function init(target) {
         if (ctx) return
 
-        let canvas = typeof target === 'string' ? document.querySelector(target) : target;
+        canvas = typeof target === 'string' ? document.querySelector(target) : target;
         ctx = canvas.getContext('2d')
 
         h.watch(() => {
@@ -47,13 +48,18 @@
         const clickY = event.clientY - rectBound.top;
 
         let hitItem = null;
+        let currentScene = scene.value
 
-        scene.forEach(el => {
-            if (clickers[el.type](el, clickX, clickY)) {
-                hitItem = el
-                return
+        for (let i = currentScene.length - 1; i >= 0; i--) {
+            const el = currentScene[i];
+            const isHit = clickers[el.type] ? clickers[el.type](el, clickX, clickY) : false;
+
+            if (isHit) {
+                hitItem = el;
+                hitItem.clicked = true
+                break; // Нашли самый верхний элемент — останавливаем поиск, глубже не идем
             }
-        })
+        }
     }
 
     function rect(props = {}) {
@@ -65,7 +71,7 @@
             w: props.w,
             h: props.h,
             color: props.color,
-            clicked: props.clicked
+            clicked: h.signal(false)
         }
 
         scene.value = [...scene.value, shape]
