@@ -1,7 +1,9 @@
 (function (h) {
-    if (!h?.meta || h.meta.name !== "h") {
-        throw new Error("h.js is not loaded.")
+    if (!h?.meta || h.meta.name !== 'h') {
+        console.error('h.js is not loaded or is not the correct version. Please ensure that h.js is included before this script and that it is the correct version.');
+        return
     }
+
     /**
      * Анимирует элемент с помощью Web Animations API
      * @param {HTMLElement} el 

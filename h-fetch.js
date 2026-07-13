@@ -1,6 +1,9 @@
 (function (h) {
-    if (!h?.meta || h.meta.name !== 'h') console.error('h.js is not loaded or is not the correct version. Please ensure that h.js is included before this script and that it is the correct version.');
-
+    if (!h?.meta || h.meta.name !== 'h') {
+        console.error('h.js is not loaded or is not the correct version. Please ensure that h.js is included before this script and that it is the correct version.');
+        return
+    }
+    
     h.resource = function (fetcher) {
         const state = h.signal({ loading: true, data: null, error: null })
         let requestId = 0
