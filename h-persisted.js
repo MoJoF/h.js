@@ -13,30 +13,32 @@
 
     h.persisted = function (key, defaultValue, { storage = localStorage } = {}) {
         let stored = defaultValue
-
         const raw = storage.getItem(key)
 
         if (raw !== null) {
-            try { stored = JSON.parse(raw) } 
+            try { stored = JSON.parse(raw) }
             catch (e) { console.error(e) }
         }
 
         const s = h.signal(stored)
 
-        h.watch(() => {
-            try { storage.setItem(key, JSON.stringify(s.value)) } 
+        const runner = h.watch(() => {
+            try { storage.setItem(key, JSON.stringify(s.value)) }
             catch (e) { console.error(e) }
         })
 
         function onStorage(e) {
             if (e.storageArea !== storage) return
+
+            if (e.key === null) {
+                s.value = defaultValue
+                return
+            }
+
             if (e.key !== key) return
 
-            try {
-                s.value = e.newValue === null
-                    ? defaultValue
-                    : JSON.parse(e.newValue)
-            } catch (err) { console.error(err) }
+            try { s.value = e.newValue === null ? defaultValue : JSON.parse(e.newValue) } 
+            catch (err) { console.error(err) }
         }
 
         window.addEventListener("storage", onStorage)
@@ -45,7 +47,10 @@
             get value() { return s.value },
             set value(v) { s.value = v },
             __isSignal: true,
-            destroy() { window.removeEventListener("storage", onStorage) }
+            destroy() {
+                runner.stop()
+                window.removeEventListener("storage", onStorage)
+            }
         }
     }
 })(window.h)
