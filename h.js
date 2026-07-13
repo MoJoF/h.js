@@ -838,7 +838,7 @@
         stopEffect,
         normalizeNode,
         use,
-        plugins: installedPlugins
+        get plugins() { return [...installedPlugins] }
     }
 
     Object.assign(h, {
