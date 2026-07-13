@@ -1,16 +1,49 @@
 (function (h) {
+    /**
+     * const nameLocal = h.persisted('name', 'Max')
+     * document.body.appendChild(h('input', { on: { input: (e) => nameLocal.value = e.target.value } }))
+     * Remove sync: nameLocal.destroy()
+     */
     if (!h?.meta || h.meta.name !== 'h') {
-        console.error('h.js is not loaded or is not the correct version. Please ensure that h.js is included before this script and that it is the correct version.');
+        console.error('h.js is not loaded or is not the correct version.')
         return
     }
 
-    h.persisted = function (key, defaultValue) {
-        let stored
-        try { stored = JSON.parse(localStorage.getItem(key)) } catch { }
-        const s = h.signal(stored ?? defaultValue)
+    h.persisted = function (key, defaultValue, { storage = localStorage } = {}) {
+        let stored = defaultValue
+
+        const raw = storage.getItem(key)
+
+        if (raw !== null) {
+            try { stored = JSON.parse(raw) } 
+            catch (e) { console.error(e) }
+        }
+
+        const s = h.signal(stored)
+
         h.watch(() => {
-            localStorage.setItem(key, JSON.stringify(s.value))
+            try { storage.setItem(key, JSON.stringify(s.value)) } 
+            catch (e) { console.error(e) }
         })
-        return s
+
+        function onStorage(e) {
+            if (e.storageArea !== storage) return
+            if (e.key !== key) return
+
+            try {
+                s.value = e.newValue === null
+                    ? defaultValue
+                    : JSON.parse(e.newValue)
+            } catch (err) { console.error(err) }
+        }
+
+        window.addEventListener("storage", onStorage)
+
+        return {
+            get value() { return s.value },
+            set value(v) { s.value = v },
+            __isSignal: true,
+            destroy() { window.removeEventListener("storage", onStorage) }
+        }
     }
 })(window.h)

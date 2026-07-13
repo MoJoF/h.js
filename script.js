@@ -79,8 +79,9 @@ document.addEventListener("DOMContentLoaded", function () {
     ]
 
 
+    const nameLocal = h.persisted('name', 'Max', { storage: sessionStorage })
 
-
+    document.body.appendChild(h('input', { on: { input: (e) => nameLocal.value === 'delete' ? nameLocal.destroy() : nameLocal.value = e.target.value } }))
 
     const f = h.resource(() => fetch('https://jsonplaceholder.typicode.com/todos/').then(resp => resp.json()))
 
