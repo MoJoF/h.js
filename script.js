@@ -105,6 +105,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // document.body.appendChild(h(TodosList))
 
-    h.canvas.init('canvas')
-    const R = h.canvas.rect({ x: 10, y: 10, w: 200, h: 150, r: 10, color: 'blue' })
+    h.canvas.init('canvas', { width: window.innerWidth, height: window.innerHeight })
+    const R = h.canvas.rect({ x: 10, y: 10, w: 200, h: 250, r: 10, color: 'blue' })
+
+    const xText = h.canvas.text({ x: 1760, y: 35, text: 'x:', font: "20px 'Trebuchet MS'" })
+    const xInput = h.canvas.input({ x: 1790, y: 30, w: 100, h: 30, onUpdate: (value) => { R.x = value } })
 });
