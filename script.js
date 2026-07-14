@@ -110,4 +110,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const xText = h.canvas.text({ x: 1760, y: 35, text: 'x:', font: "20px 'Trebuchet MS'" })
     const xInput = h.canvas.input({ x: 1790, y: 30, w: 100, h: 30, onUpdate: (value) => { R.x = value } })
+
+    const yText = h.canvas.text({ x: 1760, y: 75, text: 'y:', font: "20px 'Trebuchet MS'" })
+    const yInput = h.canvas.input({ x: 1790, y: 70, w: 100, h: 30, onUpdate: (value) => { R.y = value } })
+
+    const rText = h.canvas.text({ x: 1760, y: 115, text: 'r:', font: "20px 'Trebuchet MS'" })
+    const rInput = h.canvas.input({ x: 1790, y: 110, w: 100, h: 30, onUpdate: (value) => { R.r = value } })
+
+    const colorText = h.canvas.text({ x: 1730, y: 155, text: 'Цвет:', font: "20px 'Trebuchet MS'" })
+    const colorInput = h.canvas.input({ x: 1790, y: 150, w: 100, h: 30, onUpdate: (value) => { R.color = value } })
+
+    const wText = h.canvas.text({ x: 1700, y: 195, text: 'Ширина:', font: "20px 'Trebuchet MS'" })
+    const wInput = h.canvas.input({ x: 1790, y: 190, w: 100, h: 30, onUpdate: (value) => { R.w = value } })
 });
