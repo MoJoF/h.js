@@ -105,5 +105,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // document.body.appendChild(h(TodosList))
 
-    h.canvas.init('canvas') 
+    h.canvas.init('canvas')
+    const R = h.canvas.rect({ x: 10, y: 10, w: 200, h: 150, r: 10, color: 'blue' })
 });
